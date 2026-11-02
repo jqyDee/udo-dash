@@ -189,6 +189,18 @@ test("matches a task by itself and a project by prefix", () => {
   assert.ok(!L.matches("Uni/A/Exercise 1", null));
 });
 
+test("clicking a session moves an active highlight only if the session is grayed out", () => {
+  const next = (hl, path) => L.highlightAfterSessionClick(hl, path, tree);
+  eq(next(null, "Uni/A/Exercise 1"), null);
+  eq(next("Uni/A", "Uni/A/Exercise 1"), "Uni/A");
+  eq(next("Uni/A/Exercise 1", "Uni/A/Exercise 1"), "Uni/A/Exercise 1");
+  eq(next("Uni/A", "Uni/AB/Thing"), "Uni/AB");
+  eq(next("Uni/A/Exercise 1", "Uni/AB/Thing"), "Uni/AB");
+  eq(next("Uni/A/Exercise 1", "Uni/A/Exercise 2"), "Uni/A");
+  eq(next("Uni/A", "Uni/Loose"), "Uni/Loose");
+  eq(next("Uni/A", "Errand"), "Errand");
+});
+
 const state = (over = {}) => ({ hl: null, sel: null, day: null, zoom: { v0: 100, span: 200 }, ...over });
 const node = (path, session) => (session ? { type: "node", path, session } : { type: "node", path });
 

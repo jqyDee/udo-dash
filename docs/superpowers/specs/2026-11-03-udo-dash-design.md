@@ -203,8 +203,11 @@ project or a task.
 - **Sets the highlight:** To do rows, everything clickable in the side panel
   (breadcrumb, children, "worked on", session lists), session lists under a month day,
   the legend, and project selection by a week block.
-- **Doesn't change it:** clicking a session bar directly in day strips or the month
-  strip.
+- **Clicking a session bar in day strips or the month strip:** never starts a
+  highlight. If one is active and the session is grayed out, it moves to that session's
+  project (or to the task itself if it has no project), and the panel shows the session.
+  A colored session leaves the highlight as it is. A grayed-out sibling task in the week
+  view behaves the same way.
 - Clicking the workspace clears the highlight.
 - A session picked from a side-panel list also moves the view to that session's date.
 

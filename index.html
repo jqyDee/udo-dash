@@ -289,6 +289,12 @@ const L = (() => {
 
   const matches = (path, hl) => !!hl && (path === hl || path.startsWith(`${hl}/`));
 
+  // Clicking a session never starts a highlight, but a grayed-out one moves it.
+  function highlightAfterSessionClick(hl, path, tree) {
+    if (!hl || matches(path, hl)) return hl;
+    return tree.projectOf(path) || path;
+  }
+
   // Esc goes back one level per press.
   function escStep(s, tree, view) {
     const project = s.hl && tree.projectOf(s.hl);
@@ -384,7 +390,7 @@ const L = (() => {
     dayKey, fromKey, addDays, startOfDay, mondayOf, firstOfMonth, dayLabel,
     weekRange, monthRange, stripRange,
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
-    buildTree, lastPart, colors, matches, escStep,
+    buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
     dueState, taskWarning, fmtDue, todoItems,
     zoomAt, panBy, tickList, weekAxisStart,
   };
@@ -552,6 +558,11 @@ const L = (() => {
     if (row) reveal(L.dayKey(new Date(row.start)));
     update();
   }
+  function selectSession(p) {
+    st.hl = L.highlightAfterSessionClick(st.hl, p.path, st.tree);
+    st.sel = node(p.path, p.row);
+    render();
+  }
   function toggleDay(k) {
     st.day = st.day === k ? null : k;
     st.sel = st.day ? { type: "day", k } : null;
@@ -689,8 +700,8 @@ const L = (() => {
             if (!st.hl || groupOfHighlight(st.hl) !== group) {
               st.hl = group;
               st.sel = node(group);
-            } else st.sel = node(p.path, p.row);
-            render();
+              render();
+            } else selectSession(p);
           },
         );
         if (h >= 13) setLabel(block, p, h >= 28, k === st.day ? ` · ${timeText(p)}` : "");
@@ -742,7 +753,7 @@ const L = (() => {
             blockClass("bar", p), tr,
             `left:${(p.startMin / L.DAY_MINUTES) * 100}%;width:${((p.endMin - p.startMin) / L.DAY_MINUTES) * 100}%;background:${co.c};color:${co.on};line-height:18px`,
             p.task,
-            () => { st.sel = node(p.path, p.row); render(); },
+            () => selectSession(p),
           );
           sessionTip(bar, p);
         }
@@ -780,7 +791,7 @@ const L = (() => {
       for (const p of all) {
         const co = fill(p.path);
         const bar = btn(blockClass("bar", p), tr, `background:${co.c};color:${co.on}`, "",
-          () => { st.sel = node(p.path, p.row); render(); });
+          () => selectSession(p));
         sessionTip(bar, p);
         bars.push({ bar, p });
       }
