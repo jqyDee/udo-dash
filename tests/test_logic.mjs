@@ -330,10 +330,3 @@ test("tickList adapts to the span", () => {
   const close = L.tickList(960, 72);
   eq(close.ticks.map(close.label), ["16:00", "16:15", "16:30", "16:45", "17:00"]);
 });
-
-test("weekAxisStart", () => {
-  eq(L.weekAxisStart([]), 480);
-  eq(L.weekAxisStart([{ startMin: 600 }]), 480);
-  eq(L.weekAxisStart([{ startMin: 380 }, { startMin: 700 }]), 360);
-  eq(L.weekAxisStart([{ startMin: 0 }]), 0);
-});

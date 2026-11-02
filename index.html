@@ -413,10 +413,6 @@ const L = (() => {
     return { ticks, label: (t) => (step < 60 ? hhmm(t) : pad(t / 60)) };
   }
 
-  const WEEK_AXIS_START = 480;
-  const weekAxisStart = (list) =>
-    list.reduce((min, p) => Math.min(min, Math.floor(p.startMin / 60) * 60), WEEK_AXIS_START);
-
   return {
     DAY_MINUTES, WEEKDAYS, MONTHS,
     dayKey, fromKey, addDays, startOfDay, mondayOf, firstOfMonth, dayLabel,
@@ -424,7 +420,7 @@ const L = (() => {
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
     dueState, taskWarning, fmtDue, todoItems, statusView,
-    zoomAt, panBy, tickList, weekAxisStart,
+    zoomAt, panBy, tickList,
   };
 })();
 </script>
@@ -729,15 +725,13 @@ const L = (() => {
   // Views
   function weekView(M, list) {
     const days = [...Array(7)].map((_, i) => L.addDays(st.week, i));
-    const axisStart = L.weekAxisStart(list);
-    const y = (minutes) => (minutes - axisStart) * WEEK_PX_PER_MIN;
+    const y = (minutes) => minutes * WEEK_PX_PER_MIN;
     const height = y(L.DAY_MINUTES);
     const W = el("div", "week", M);
     W.style.gridTemplateColumns = `34px ${days.map((d) => (L.dayKey(d) === st.day ? "3fr" : "1fr")).join(" ")}`;
     el("div", "", W);
     const lines = [];
-    for (let h = 0; h <= 24; h += 4) if (h * 60 >= axisStart) lines.push(h * 60);
-    if (!lines.includes(axisStart)) lines.unshift(axisStart);
+    for (let h = 0; h <= 24; h += 4) lines.push(h * 60);
     for (const d of days) {
       const k = L.dayKey(d);
       const shown = list.filter((p) => p.day === k && (!st.hl || L.matches(p.path, st.hl)));
