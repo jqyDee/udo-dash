@@ -2,7 +2,149 @@
 <html lang="en">
 <meta charset="utf-8">
 <title>udo-dash</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --base:#c3c2b7; --wash:#f3f2ee; --gray:#dddcd5; --neutral:#898781;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
+    --t1:#eda100; --t2:#e87ba4; --t3:#008300; --t4:#6250d6; --t5:#e34948;
+    --on-yellow:#0b0b0b; --banner:#fbe9e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --base:#383835; --wash:#242422; --gray:#383835; --neutral:#898781;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+      --t1:#c98500; --t2:#d55181; --t3:#008300; --t4:#9085e9; --t5:#e66767;
+      --on-yellow:#ffffff; --banner:#3a1f1d;
+    }
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--page); }
+  body { margin:0; padding:16px; color:var(--ink); font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; text-align:left; padding:0; }
+  .tn { font-variant-numeric:tabular-nums; }
+  .hint { color:var(--muted); font-size:13px; margin:0; }
+  .banner { background:var(--banner); border:1px solid #d03b3b; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; }
+
+  .todo { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:8px 10px; margin-bottom:12px; }
+  .todo .sec { margin:0 0 3px 5px; }
+  button.td { display:grid; grid-template-columns:minmax(0,1fr) 110px 170px 92px; gap:10px; align-items:center; width:100%; padding:3px 5px; border-radius:5px; font-size:12px; }
+  button.td:hover { background:var(--wash); }
+  button.td.sel { background:var(--wash); box-shadow:inset 2px 0 0 var(--ink); }
+  .td .p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td .p small { color:var(--muted); font-size:11px; margin-left:6px; }
+  .td .mu { color:var(--ink2); }
+  .td .warn { font-weight:600; }
+  .warn svg, .chip svg { vertical-align:-2px; margin-right:4px; }
+  .td .r { text-align:right; }
+
+  .bar-top { display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs { display:flex; gap:2px; background:var(--wash); border-radius:8px; padding:3px; }
+  .tabs button { padding:5px 12px; border-radius:6px; font-size:13px; color:var(--ink2); }
+  .tabs button.on { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 0 0 1px var(--grid); }
+  .nav { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; flex-wrap:wrap; }
+  .nav > button { width:26px; height:26px; border-radius:6px; background:var(--wash); text-align:center; }
+  .nav > button.now { width:auto; padding:0 10px; font-weight:500; }
+  .nav > button.now.at { opacity:.45; cursor:default; }
+  .nav > button.rng { width:auto; padding:0 9px; font-weight:500; color:var(--ink2); }
+  .nav > button.rng.on { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 0 0 1px var(--grid); }
+  .zi { font-size:12px; font-weight:500; color:var(--ink2); display:flex; align-items:center; gap:6px; }
+  .zi button { padding:0 9px; height:24px; border-radius:6px; background:var(--wash); color:var(--ink); }
+  .sum { margin-left:auto; font-size:13px; color:var(--ink2); }
+  .sum b { color:var(--ink); font-size:17px; font-weight:600; margin-left:6px; }
+  .q { font-size:11px; color:var(--muted); margin:-4px 0 8px; }
+  .q code { font-size:11px; color:var(--ink2); }
+  .legend { display:flex; gap:6px 14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--ink2); min-height:26px; margin-bottom:10px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+  .legend button:hover { color:var(--ink); }
+  .legend b { font-weight:600; color:var(--ink); }
+  .legend .clr { background:var(--wash); padding:2px 9px; border-radius:6px; color:var(--ink); }
+
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:16px; align-items:start; }
+  .main, .side { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:14px; }
+  .side { position:sticky; top:8px; font-size:13px; min-height:220px; max-height:calc(100vh - 16px); overflow:auto; }
+
+  .lb { display:block; overflow:hidden; white-space:nowrap; }
+  .lb.n { line-height:13px; }
+  .lb.c { font-size:9.5px; opacity:.85; text-overflow:ellipsis; line-height:12px; }
+  .running { outline:1px dashed var(--ink); outline-offset:-1px; }
+
+  .week { display:grid; font-size:11px; }
+  .week button.hd { text-align:center; padding:3px 0 6px; color:var(--ink2); border-radius:6px; }
+  .week button.hd:hover { background:var(--wash); }
+  .week button.hd.on { background:var(--wash); box-shadow:inset 0 -2px 0 var(--ink); }
+  .hd b { display:block; color:var(--ink); font-weight:600; }
+  .col { position:relative; border-left:1px solid var(--grid); }
+  .axis { position:relative; color:var(--muted); }
+  .axis span { position:absolute; right:6px; transform:translateY(-50%); }
+  .gl { position:absolute; left:0; right:0; border-top:1px solid var(--grid); }
+  button.blk { position:absolute; left:3px; right:3px; border-radius:4px; box-shadow:0 0 0 1px var(--surface); min-height:3px; overflow:hidden; font-size:11px; padding:0 5px; }
+  button.blk:hover, button.bar:hover { filter:brightness(1.12); }
+  button.bar.sel, button.blk.sel { box-shadow:0 0 0 2px var(--ink); z-index:2; }
+
+  .month { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; font-size:12px; }
+  .dow { color:var(--muted); font-size:11px; padding:0 2px 2px; }
+  button.cell { background:var(--wash); border-radius:6px; padding:6px 8px; min-height:96px; display:block; width:100%; }
+  button.cell.off { opacity:.45; }
+  button.cell.on { box-shadow:0 0 0 2px var(--ink); }
+  button.cell:not(.empty):hover { filter:brightness(1.08); }
+  button.cell.empty { cursor:default; }
+  .cell .d { color:var(--ink2); font-size:11px; display:block; }
+  .cell .t { display:block; font-size:15px; font-weight:600; line-height:1.3; min-height:20px; }
+  .stack { display:flex; gap:2px; height:6px; margin-top:4px; }
+  .stack span { border-radius:2px; min-width:2px; }
+  .expand { grid-column:1/-1; background:var(--surface); border:1px solid var(--base); border-radius:8px; padding:10px 12px; margin:2px 0 6px; }
+  .expand h4 { margin:0 0 6px; font-size:13px; font-weight:600; }
+
+  .list-row { display:flex; gap:10px; align-items:center; width:100%; border-radius:5px; font-size:12px; }
+  button.list-row { padding:4px 7px; }
+  button.list-row:hover { background:var(--wash); }
+  button.list-row.sel { background:var(--wash); box-shadow:inset 2px 0 0 var(--ink); }
+  .list-row i { width:9px; height:9px; border-radius:3px; flex:none; }
+  .list-row .gr { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .list-row .mu { color:var(--ink2); }
+
+  .strips { font-size:11px; display:grid; grid-template-columns:76px 1fr 44px; align-items:center; user-select:none; }
+  .strips button.lab { color:var(--ink2); font-size:11px; }
+  .strips button.lab:hover { color:var(--ink); }
+  .strips button.lab.we { color:var(--muted); }
+  .strips button.lab.on { color:var(--ink); font-weight:600; }
+  .tot { text-align:right; }
+  .track { position:relative; height:22px; border-top:1px solid var(--grid); }
+  .strips .track { height:32px; overflow:hidden; }
+  .strips.zoomed .track { cursor:grab; }
+  .strips.dragging .track, .strips.dragging button.bar { cursor:grabbing; }
+  button.bar { position:absolute; top:2px; bottom:2px; border-radius:3px; min-width:3px; box-shadow:0 0 0 1px var(--surface); overflow:hidden; font-size:10.5px; padding:0 4px; }
+  .vl { position:absolute; top:0; bottom:0; border-left:1px solid var(--grid); pointer-events:none; }
+  .ticks { position:relative; height:16px; color:var(--muted); pointer-events:none; }
+  .ticks span { position:absolute; transform:translateX(-50%); }
+  .ticks.top { position:sticky; top:0; z-index:3; background:var(--surface); }
+  .mon { grid-column:1/-1; border-top:2px solid var(--base); margin-top:8px; padding:4px 0 3px; font-size:12px; font-weight:600; }
+  .mon.first { border-top:0; margin-top:0; padding-top:0; }
+
+  .crumb { font-size:11px; color:var(--ink2); margin-bottom:5px; }
+  .crumb button:hover { color:var(--ink); text-decoration:underline; }
+  .side h3 { margin:0; font-size:16px; font-weight:600; }
+  .desc { color:var(--ink2); margin:3px 0 0; }
+  .chip { display:inline-block; background:var(--wash); border-radius:5px; padding:1px 7px; font-size:11px; color:var(--ink2); margin:6px 6px 0 0; }
+  .chip.warn { color:var(--ink); font-weight:600; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; margin:12px 0; }
+  .kv span:nth-child(odd) { color:var(--ink2); }
+  .kv span:nth-child(even) { text-align:right; font-variant-numeric:tabular-nums; }
+  .sec { font-size:11px; color:var(--muted); margin:14px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .bullet { position:relative; height:8px; background:var(--wash); border-radius:3px; margin:6px 0 3px; }
+  .bullet span { position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:var(--ink2); }
+  .bullet em { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--ink); }
+  .cap { font-size:11px; color:var(--ink2); }
+  .dir { font-size:11px; color:var(--muted); word-break:break-all; margin-top:10px; }
+  #tip { position:fixed; pointer-events:none; z-index:50; background:var(--surface); color:var(--ink); border:1px solid var(--base); border-radius:6px; padding:6px 9px; font-size:12px; line-height:1.4; display:none; box-shadow:0 2px 8px rgba(0,0,0,.18); max-width:260px; }
+  #tip small { color:var(--ink2); font-size:11px; display:block; }
+</style>
 <div id="app"></div>
+<div id="tip"></div>
 <script id="logic">
 // Pure logic, no DOM. tests/test_logic.mjs loads this script on its own.
 const L = (() => {
@@ -179,6 +321,8 @@ const L = (() => {
     const hours = Math.floor(ms / 36e5);
     return { kind: "soon", text: hours >= 1 ? `due in ${hours}h` : `due in ${Math.max(1, Math.floor(ms / 6e4))}m` };
   }
+  const taskWarning = (task, nowMs) =>
+    task.status === "done" ? { kind: "none" } : dueState(task.due, nowMs);
   const dayDistance = (iso, nowMs) =>
     Math.round((startOfDay(new Date(iso)) - startOfDay(new Date(nowMs))) / DAY_MS);
   function relativeDay(iso, nowMs) {
@@ -241,9 +385,726 @@ const L = (() => {
     weekRange, monthRange, stripRange,
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, escStep,
-    dueState, fmtDue, todoItems,
+    dueState, taskWarning, fmtDue, todoItems,
     zoomAt, panBy, tickList, weekAxisStart,
   };
+})();
+</script>
+<script id="ui">
+(() => {
+  const app = document.getElementById("app");
+  const tip = document.getElementById("tip");
+  const FULL_DAY = { v0: 0, span: L.DAY_MINUTES };
+  const WEEK_PX_PER_MIN = 620 / 960;
+  const MONTH_BAR_SECONDS = 8 * 3600;
+  const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const today = () => L.startOfDay(new Date());
+
+  const st = {
+    view: "week",
+    week: L.mondayOf(today()),
+    month: L.firstOfMonth(today()),
+    stripEnd: today(),
+    stripDays: 30,
+    zoom: { ...FULL_DAY },
+    hl: null,
+    day: null,
+    sel: null,
+    tree: null,
+    colors: null,
+    rows: [],
+    range: null,
+    query: null,
+    error: null,
+  };
+  let seq = 0;
+  let nodeGen = 0;
+  const nodes = new Map();
+  let lastGesture = 0;
+  let dragging = false;
+
+  // Data
+  async function api(url) {
+    const response = await fetch(url);
+    const text = await response.text();
+    if (!response.ok) {
+      let message = text;
+      try { message = JSON.parse(text).error; } catch { /* keep the raw text */ }
+      throw new Error(message);
+    }
+    return { json: JSON.parse(text), bytes: text.length };
+  }
+  function viewRange() {
+    if (st.view === "week") return L.weekRange(st.week);
+    if (st.view === "month") return L.monthRange(st.month);
+    return L.stripRange(st.stripEnd, st.stripDays);
+  }
+  const sameRange = (a, b) =>
+    !!a && !!b && L.dayKey(a.from) === L.dayKey(b.from) && L.dayKey(a.to) === L.dayKey(b.to);
+
+  async function refresh() {
+    const mine = ++seq;
+    const range = viewRange();
+    const from = L.dayKey(range.from);
+    const to = L.dayKey(range.to);
+    const [tree, sessions] = await Promise.allSettled([
+      api("/api/tree"),
+      api(`/api/sessions?from=${from}&to=${to}`),
+    ]);
+    if (mine !== seq) return; // A newer view was asked for in the meantime.
+    const errors = [];
+    if (tree.status === "fulfilled") {
+      st.tree = L.buildTree(tree.value.json.rows);
+      st.colors = L.colors(st.tree);
+    } else errors.push(tree.reason.message);
+    if (sessions.status === "fulfilled") {
+      st.rows = sessions.value.json.rows;
+      st.query = { from, to, n: st.rows.length, bytes: sessions.value.bytes };
+    } else {
+      st.rows = [];
+      st.query = null;
+      errors.push(sessions.reason.message);
+    }
+    st.range = range;
+    st.error = errors.length ? [...new Set(errors)].join(" · ") : null;
+    nodeGen++;
+    render();
+  }
+  // Fetch only if the view now needs other days than are loaded.
+  function update() {
+    tip.style.display = "none";
+    if (sameRange(viewRange(), st.range)) {
+      seq++; // A response still on its way is for a view we have left.
+      render();
+    } else refresh();
+  }
+  function ensureNode(path) {
+    const known = nodes.get(path);
+    if (known && (known.gen === nodeGen || known.pending)) return known;
+    const entry = { gen: nodeGen, pending: true, node: known && known.node, sessions: known && known.sessions };
+    nodes.set(path, entry);
+    const encoded = encodeURIComponent(path);
+    api(`/api/node?path=${encoded}`)
+      .then(async ({ json }) => {
+        entry.node = json;
+        entry.error = null;
+        entry.sessions = json.kind ? [] : (await api(`/api/task-sessions?path=${encoded}`)).json.rows;
+      })
+      .catch((error) => { entry.error = error.message; })
+      .finally(() => {
+        entry.pending = false;
+        if (st.sel && st.sel.path === path) render();
+      });
+    return entry;
+  }
+
+  // Elements
+  function el(tag, cls, parent, css, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (css) e.style.cssText = css;
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function btn(cls, parent, css, text, fn) {
+    const e = el("button", cls, parent, css, text);
+    e.type = "button";
+    if (fn) e.addEventListener("click", (ev) => { ev.stopPropagation(); fn(); });
+    return e;
+  }
+  function tipOn(e, head, lines) {
+    e.addEventListener("mousemove", (ev) => {
+      if (dragging) return;
+      tip.textContent = "";
+      el("b", "", tip, "", head);
+      lines.forEach((line) => el("small", "", tip, "", line));
+      tip.style.display = "block";
+      tip.style.left = `${Math.min(ev.clientX + 12, innerWidth - 270)}px`;
+      tip.style.top = `${ev.clientY + 12}px`;
+    });
+    e.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  }
+  const ICON = (fill, mark) =>
+    `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1l5.2 9.5H.8z" fill="${fill}"/><rect x="5.4" y="4.4" width="1.2" height="3.4" fill="${mark}"/><rect x="5.4" y="8.4" width="1.2" height="1.2" fill="${mark}"/></svg>`;
+  const WARNING = { late: ICON("#d03b3b", "#fff"), soon: ICON("#ec835a", "#0b0b0b") };
+
+  // Selection and highlight
+  const node = (path, session) => (session ? { type: "node", path, session } : { type: "node", path });
+  const isSel = (p) => !!st.sel && !!st.sel.session && st.sel.session.full_id === p.id;
+  const groupOfHighlight = (path) => st.tree.projectOf(path) || path;
+  const parts = (path) => path.split("/");
+
+  function reveal(key) {
+    const d = L.fromKey(key);
+    st.week = L.mondayOf(d);
+    st.month = L.firstOfMonth(d);
+    const first = L.addDays(st.stripEnd, -(st.stripDays - 1));
+    if (d < first || d > st.stripEnd) {
+      const end = L.addDays(d, Math.floor(st.stripDays / 2));
+      st.stripEnd = end > today() ? today() : end;
+    }
+  }
+  function pick(path, row) {
+    st.sel = node(path, row);
+    const r = st.tree.byPath.get(path);
+    st.hl = r && r.kind === "workspace" ? null : path;
+    if (row) reveal(L.dayKey(new Date(row.start)));
+    update();
+  }
+  function toggleDay(k) {
+    st.day = st.day === k ? null : k;
+    st.sel = st.day ? { type: "day", k } : null;
+    render();
+  }
+  function clearDay() {
+    st.day = null;
+    if (st.sel && st.sel.type === "day") st.sel = null;
+  }
+
+  // Colors
+  const onFill = (slot) => (slot === "--t1" || slot === "--s4" ? "var(--on-yellow)" : "#fff");
+  function fill(path) {
+    if (st.hl) {
+      if (!L.matches(path, st.hl)) return { c: "var(--gray)", on: "var(--ink2)" };
+      const slot = st.colors.task(path);
+      return { c: `var(${slot})`, on: onFill(slot) };
+    }
+    const slot = st.colors.project(st.tree.groupOf(path));
+    return { c: `var(${slot})`, on: onFill(slot) };
+  }
+
+  // Labels: the task name shows whole or not at all, the container may end in "…".
+  function setLabel(b, p, withContainer, suffix) {
+    b.textContent = "";
+    el("span", "lb n", b, "", p.task + (suffix || ""));
+    const container = withContainer ? st.tree.containerName(p.path) : null;
+    if (container) el("span", "lb c", b, "", container);
+  }
+  function fitLabel(b) {
+    const name = b.querySelector(".lb.n");
+    if (name ? name.scrollWidth > name.clientWidth : b.scrollWidth > b.clientWidth) b.textContent = "";
+  }
+  const endText = (p) => (p.running ? "now" : p.endMin >= L.DAY_MINUTES ? "24:00" : L.hhmm(p.endMin));
+  const timeText = (p) => `${L.hhmm(p.startMin)}–${endText(p)}`;
+  function sessionTip(e, p) {
+    tipOn(e, p.task, [
+      st.tree.containerName(p.path) || "No container",
+      `${timeText(p)} · ${L.fmtSeconds(p.seconds)}${p.running ? " · running" : ""}`,
+    ]);
+  }
+  const blockClass = (base, p) => `${base}${isSel(p) ? " sel" : ""}${p.running ? " running" : ""}`;
+
+  // To do
+  function todoSection(parent) {
+    if (!st.tree) return;
+    const items = L.todoItems(st.tree, Date.now());
+    const box = el("div", "todo", parent);
+    el("div", "sec", box, "", "To do");
+    if (!items.length) el("p", "hint", box, "margin-left:5px", "Nothing open.");
+    for (const item of items) {
+      const path = item.row.path;
+      const row = btn(`td${st.sel && st.sel.path === path ? " sel" : ""}`, box, "", "", () => pick(path));
+      const name = el("span", "p", row, "", item.row.name);
+      const container = st.tree.containerName(path);
+      if (container) el("small", "", name, "", container);
+      el("span", "mu tn", row, "", item.due);
+      const warned = item.state === "late" || item.state === "soon";
+      const when = el("span", warned ? "warn" : "mu", row);
+      if (warned) when.innerHTML = WARNING[item.state];
+      when.append(item.when);
+      el("span", "mu tn r", row, "", item.left);
+    }
+  }
+
+  // Legend
+  function legend(parent, list) {
+    const box = el("div", "legend", parent);
+    if (st.hl) {
+      const project = st.tree.projectOf(st.hl);
+      el("b", "", box, "", L.lastPart(project || st.hl));
+      if (project) {
+        const inRange = new Set(list.map((p) => p.path).filter((p) => L.matches(p, project)));
+        if (st.tree.byPath.get(st.hl) && !st.tree.byPath.get(st.hl).kind) inRange.add(st.hl);
+        [...inRange]
+          .sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
+          .forEach((path) => {
+            const b = btn("", box, "", "", () => pick(path));
+            el("i", "", b, `background:${fill(path).c}`);
+            b.append(L.lastPart(path));
+          });
+      }
+      btn("clr", box, "", "Show all ✕", () => {
+        st.hl = null;
+        if (st.sel && st.sel.type === "node") st.sel = null;
+        render();
+      });
+      return;
+    }
+    const groups = [...new Set(list.map((p) => st.tree.groupOf(p.path)))]
+      .sort((a, b) => (a || "~").localeCompare(b || "~", "en", { numeric: true }));
+    if (!groups.length) el("span", "hint", box, "", "No sessions in this range.");
+    for (const group of groups) {
+      const slot = st.colors.project(group);
+      const b = btn("", box, "", "", group ? () => pick(group) : null);
+      el("i", "", b, `background:var(${slot})`);
+      b.append(group ? L.lastPart(group) : "No project");
+    }
+  }
+
+  // Views
+  function weekView(M, list) {
+    const days = [...Array(7)].map((_, i) => L.addDays(st.week, i));
+    const axisStart = L.weekAxisStart(list);
+    const y = (minutes) => (minutes - axisStart) * WEEK_PX_PER_MIN;
+    const height = y(L.DAY_MINUTES);
+    const W = el("div", "week", M);
+    W.style.gridTemplateColumns = `34px ${days.map((d) => (L.dayKey(d) === st.day ? "3fr" : "1fr")).join(" ")}`;
+    el("div", "", W);
+    const lines = [];
+    for (let h = 0; h <= 24; h += 4) if (h * 60 >= axisStart) lines.push(h * 60);
+    if (!lines.includes(axisStart)) lines.unshift(axisStart);
+    for (const d of days) {
+      const k = L.dayKey(d);
+      const shown = list.filter((p) => p.day === k && (!st.hl || L.matches(p.path, st.hl)));
+      const seconds = L.sumSeconds(shown);
+      const head = btn(`hd${k === st.day ? " on" : ""}`, W, "", "", () => toggleDay(k));
+      el("b", "", head, "", `${L.WEEKDAYS[d.getDay()]} ${d.getDate()}`);
+      el("span", "tn", head, "", seconds ? L.fmtSeconds(seconds) : "–");
+    }
+    const axis = el("div", "axis", W, `height:${height}px`);
+    lines.forEach((m) => el("span", "", axis, `top:${y(m)}px`, L.hhmm(m).slice(0, 2)));
+    for (const d of days) {
+      const k = L.dayKey(d);
+      const col = el("div", "col", W, `height:${height}px`);
+      lines.forEach((m) => el("div", "gl", col, `top:${y(m)}px`));
+      for (const p of list.filter((x) => x.day === k)) {
+        const co = fill(p.path);
+        const h = (p.endMin - p.startMin) * WEEK_PX_PER_MIN;
+        const block = btn(
+          blockClass("blk", p), col,
+          `top:${y(p.startMin)}px;height:${h}px;background:${co.c};color:${co.on}`, "",
+          () => {
+            const group = groupOfHighlight(p.path);
+            if (!st.hl || groupOfHighlight(st.hl) !== group) {
+              st.hl = group;
+              st.sel = node(group);
+            } else st.sel = node(p.path, p.row);
+            render();
+          },
+        );
+        if (h >= 13) setLabel(block, p, h >= 28, k === st.day ? ` · ${timeText(p)}` : "");
+        sessionTip(block, p);
+      }
+    }
+  }
+
+  function monthView(M, list) {
+    const G = el("div", "month", M);
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach((d) => el("div", "dow", G, "", d));
+    const range = L.monthRange(st.month);
+    const mo = st.month.getMonth();
+    for (let d = range.from; d < range.to;) {
+      let open = null;
+      for (let i = 0; i < 7; i++, d = L.addDays(d, 1)) {
+        const date = d;
+        const k = L.dayKey(date);
+        const all = list.filter((p) => p.day === k);
+        const seconds = L.sumSeconds(all);
+        const cls = `cell${date.getMonth() === mo ? "" : " off"}${k === st.day ? " on" : ""}${seconds ? "" : " empty"}`;
+        const cell = btn(cls, G, "", "", seconds ? () => toggleDay(k) : null);
+        el("span", "d", cell, "", date.getDate() === 1 ? `1 ${L.MONTHS[date.getMonth()]}` : date.getDate());
+        el("span", "t tn", cell, "", seconds ? L.fmtSeconds(seconds) : "");
+        if (seconds) {
+          const segments = new Map();
+          const byGroup = new Map();
+          for (const p of all) {
+            const c = fill(p.path).c;
+            segments.set(c, (segments.get(c) || 0) + p.seconds);
+            const name = L.lastPart(st.tree.groupOf(p.path) || "No project");
+            byGroup.set(name, (byGroup.get(name) || 0) + p.seconds);
+          }
+          const stack = el("span", "stack", cell);
+          segments.forEach((s, c) => el("span", "", stack, `width:${(s / MONTH_BAR_SECONDS) * 100}%;background:${c}`));
+          tipOn(cell, `${L.dayLabel(date)} · ${L.fmtSeconds(seconds)}`,
+            [...byGroup].map(([name, s]) => `${name}: ${L.fmtSeconds(s)}`));
+        }
+        if (k === st.day && seconds) open = { date, all, seconds };
+      }
+      if (open) {
+        const E = el("div", "expand", G);
+        el("h4", "", E, "", `${L.dayLabel(open.date)} · ${L.fmtSeconds(open.seconds)}`);
+        const tr = el("div", "track", E, "border-top:0;height:22px;background:var(--wash);border-radius:4px");
+        [6, 12, 18].forEach((h) => el("div", "vl", tr, `left:${(h / 24) * 100}%`));
+        for (const p of open.all) {
+          const co = fill(p.path);
+          const bar = btn(
+            blockClass("bar", p), tr,
+            `left:${(p.startMin / L.DAY_MINUTES) * 100}%;width:${((p.endMin - p.startMin) / L.DAY_MINUTES) * 100}%;background:${co.c};color:${co.on};line-height:18px`,
+            p.task,
+            () => { st.sel = node(p.path, p.row); render(); },
+          );
+          sessionTip(bar, p);
+        }
+        const ticks = el("div", "ticks", E);
+        [0, 6, 12, 18, 24].forEach((h) => el("span", "", ticks, `left:${(h / 24) * 100}%`, String(h).padStart(2, "0")));
+        open.all.forEach((p) => sessionRow(E, p));
+      }
+    }
+  }
+
+  function stripsView(M, list) {
+    const R = el("div", "strips", M);
+    const bars = [];
+    const tracks = [];
+    const axes = [];
+    el("div", "", R);
+    axes.push(el("div", "ticks top", R));
+    el("div", "", R);
+    let lastMonth = null;
+    for (let i = 0; i < st.stripDays; i++) {
+      const date = L.addDays(st.stripEnd, -i);
+      const k = L.dayKey(date);
+      const all = list.filter((p) => p.day === k);
+      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+      if (monthKey !== lastMonth) {
+        el("div", `mon${lastMonth === null ? " first" : ""}`, R, "", `${MONTHS_LONG[date.getMonth()]} ${date.getFullYear()}`);
+        lastMonth = monthKey;
+      }
+      const weekend = [0, 6].includes(date.getDay());
+      const on = st.sel && st.sel.type === "day" && st.sel.k === k;
+      btn(`lab${weekend ? " we" : ""}${on ? " on" : ""}`, R, "", L.dayLabel(date),
+        all.length ? () => { st.sel = { type: "day", k }; render(); } : null);
+      const tr = el("div", "track", R);
+      tracks.push(tr);
+      for (const p of all) {
+        const co = fill(p.path);
+        const bar = btn(blockClass("bar", p), tr, `background:${co.c};color:${co.on}`, "",
+          () => { st.sel = node(p.path, p.row); render(); });
+        sessionTip(bar, p);
+        bars.push({ bar, p });
+      }
+      const seconds = L.sumSeconds(all);
+      el("div", "tot tn", R, "", seconds ? L.fmtSeconds(seconds) : "");
+    }
+    el("div", "", R);
+    axes.push(el("div", "ticks", R));
+    el("div", "", R);
+
+    // Sessions stay in the DOM while zooming: removing the element under the
+    // cursor would end a pinch gesture.
+    function apply() {
+      const { v0, span } = st.zoom;
+      const v1 = v0 + span;
+      const { ticks, label } = L.tickList(v0, span);
+      for (const tr of tracks) {
+        tr.querySelectorAll(".vl").forEach((v) => v.remove());
+        for (const t of ticks) {
+          if (t > v0 && t < v1) {
+            const line = document.createElement("div");
+            line.className = "vl";
+            line.style.left = `${((t - v0) / span) * 100}%`;
+            tr.prepend(line);
+          }
+        }
+      }
+      for (const axis of axes) {
+        axis.textContent = "";
+        ticks.forEach((t) => el("span", "", axis, `left:${((t - v0) / span) * 100}%`, label(t)));
+      }
+      for (const { bar, p } of bars) {
+        const a = Math.max(p.startMin, v0);
+        const e = Math.min(p.endMin, v1);
+        if (e <= a) { bar.style.display = "none"; continue; }
+        bar.style.display = "";
+        bar.style.left = `${((a - v0) / span) * 100}%`;
+        bar.style.width = `${((e - a) / span) * 100}%`;
+        setLabel(bar, p, true);
+      }
+      for (const { bar } of bars) if (bar.style.display !== "none") fitLabel(bar);
+      const info = document.getElementById("zi");
+      if (info) {
+        info.style.display = span < L.DAY_MINUTES ? "" : "none";
+        info.firstChild.textContent = `${L.hhmm(v0)}–${L.hhmm(v1)}`;
+      }
+      R.classList.toggle("zoomed", span < L.DAY_MINUTES);
+    }
+    apply();
+
+    R.addEventListener("wheel", (e) => {
+      const r = tracks[0].getBoundingClientRect();
+      if (!e.ctrlKey) {
+        const dx = e.shiftKey ? e.deltaX || e.deltaY : Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0;
+        if (!dx || st.zoom.span >= L.DAY_MINUTES) return;
+        e.preventDefault();
+        st.zoom = L.panBy(st.zoom, (dx / r.width) * st.zoom.span);
+      } else {
+        e.preventDefault();
+        const fraction = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+        st.zoom = L.zoomAt(st.zoom, fraction, e.deltaY);
+      }
+      lastGesture = Date.now();
+      tip.style.display = "none";
+      apply();
+    }, { passive: false });
+
+    R.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || st.zoom.span >= L.DAY_MINUTES || !e.target.closest(".track")) return;
+      const x0 = e.clientX;
+      const start = st.zoom;
+      const width = tracks[0].getBoundingClientRect().width;
+      let moved = false;
+      const move = (m) => {
+        const dx = m.clientX - x0;
+        if (!moved && Math.abs(dx) < 4) return;
+        moved = true;
+        dragging = true;
+        lastGesture = Date.now();
+        R.classList.add("dragging");
+        tip.style.display = "none";
+        st.zoom = L.panBy(start, (-dx / width) * start.span);
+        apply();
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        R.classList.remove("dragging");
+        dragging = false;
+        if (moved) {
+          // The click that ends a drag must not select the session under the cursor.
+          const swallow = (c) => { c.stopPropagation(); c.preventDefault(); };
+          R.addEventListener("click", swallow, { capture: true, once: true });
+          setTimeout(() => R.removeEventListener("click", swallow, { capture: true }), 0);
+        }
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+  }
+
+  function sessionRow(parent, p) {
+    const row = btn(`list-row${isSel(p) ? " sel" : ""}`, parent, "", "", () => pick(p.path, p.row));
+    el("i", "", row, `background:${fill(p.path).c}`);
+    el("span", "tn mu", row, "", timeText(p));
+    el("span", "gr", row, "", p.task);
+    el("span", "tn", row, "", L.fmtSeconds(p.seconds));
+  }
+
+  // Side panel
+  const signed = (m) => `${m > 0 ? "+" : m < 0 ? "−" : ""}${L.fmtMinutes(Math.abs(m))}`;
+  function keyValues(P, rows) {
+    const box = el("div", "kv", P);
+    rows.forEach(([key, value]) => { el("span", "", box, "", key); el("span", "", box, "", value); });
+  }
+  function bullet(P, actual, estimate, caption) {
+    const max = Math.max(actual, estimate, 1);
+    const box = el("div", "bullet", P);
+    el("span", "", box, `width:${(actual / max) * 100}%`);
+    el("em", "", box, `left:calc(${(estimate / max) * 100}% - 1px)`);
+    el("div", "cap", P, "", caption);
+  }
+  function crumbs(P, path) {
+    const box = el("div", "crumb", P);
+    const all = parts(path);
+    all.forEach((part, i) => {
+      if (i === all.length - 1) { box.append(part); return; }
+      btn("", box, "", part, () => pick(all.slice(0, i + 1).join("/")));
+      box.append(" › ");
+    });
+  }
+
+  function dayPanel(P, list, k) {
+    const all = list.filter((p) => p.day === k);
+    el("h3", "", P, "", L.dayLabel(L.fromKey(k)));
+    if (!all.length) { el("p", "hint", P, "margin-top:8px", "No sessions in the loaded range."); return; }
+    keyValues(P, [
+      ["Tracked", L.fmtSeconds(L.sumSeconds(all))],
+      ["Sessions", all.length],
+      ["First start", L.hhmm(all[0].startMin)],
+      ["Last end", endText(all[all.length - 1])],
+    ]);
+    const byTask = new Map();
+    all.forEach((p) => byTask.set(p.path, (byTask.get(p.path) || 0) + p.seconds));
+    el("div", "sec", P, "", "Worked on");
+    byTask.forEach((seconds, path) => {
+      const row = btn("list-row", P, "", "", () => pick(path));
+      el("i", "", row, `background:${fill(path).c}`);
+      el("span", "gr", row, "", L.lastPart(path));
+      el("span", "tn", row, "", L.fmtSeconds(seconds));
+    });
+    el("div", "sec", P, "", "Sessions");
+    all.forEach((p) => sessionRow(P, p));
+  }
+
+  function containerPanel(P, path, n) {
+    el("span", "chip", P, "", n.kind);
+    keyValues(P, [
+      ["Tracked", L.fmtMinutes(n.minutes)],
+      ["Sessions", n.sessions],
+      ["Tasks", n.tasks],
+      ["Estimated, all tasks", L.fmtMinutes(n.estimated)],
+      ["Left on open tasks", L.fmtMinutes(n.left)],
+      ["Tasks over estimate", n.over],
+    ]);
+    if (n.done_estimated) {
+      el("div", "sec", P, "", "Done tasks: tracked vs estimate");
+      bullet(P, n.done_actual, n.done_estimated,
+        `${L.fmtMinutes(n.done_actual)} tracked, ${L.fmtMinutes(n.done_estimated)} estimated (${signed(n.done_actual - n.done_estimated)})`);
+    }
+    const children = st.tree.children(path);
+    if (children.length) el("div", "sec", P, "", "Children");
+    for (const child of children) {
+      const row = btn("list-row", P, "", "", () => pick(child.path));
+      const slot = child.kind ? st.colors.project(child.path) : st.colors.task(child.path);
+      el("i", "", row, `background:var(${slot})`);
+      el("span", "gr", row, "", child.name);
+      if (child.status) el("span", "mu", row, "", child.status);
+      el("span", "tn", row, "", L.fmtMinutes(child.minutes || 0));
+    }
+    if (n.dir) el("div", "dir", P, "", n.dir);
+  }
+
+  function taskPanel(P, path, n, sessions) {
+    el("span", "chip", P, "", n.status);
+    const now = Date.now();
+    const due = L.taskWarning(n, now);
+    if (due.kind === "late" || due.kind === "soon") {
+      const chip = el("span", "chip warn", P);
+      chip.innerHTML = WARNING[due.kind];
+      chip.append(due.kind === "late" ? "overdue" : due.text);
+    }
+    const session = st.sel.session;
+    if (session) {
+      const start = Date.parse(session.start);
+      const end = session.end ? Date.parse(session.end) : now;
+      el("div", "sec", P, "", "This session");
+      keyValues(P, [
+        ["Date", L.dayLabel(new Date(start))],
+        ["Time", `${L.clock(start)} – ${session.end ? L.clock(end) : "now"}`],
+        ["Length", L.fmtSeconds((end - start) / 1000)],
+      ]);
+    }
+    el("div", "sec", P, "", "Task");
+    keyValues(P, [
+      ["Due", n.due ? L.fmtDue(n.due, now) : "none"],
+      ["Tracked", L.fmtMinutes(n.minutes)],
+      ["Sessions", n.sessions],
+      ["Estimate", n.estimate == null ? "none" : L.fmtMinutes(n.estimate)],
+    ]);
+    if (n.estimate) bullet(P, n.minutes, n.estimate, `${signed(n.minutes - n.estimate)} vs estimate. Bar: tracked, tick: estimate`);
+    if (sessions && sessions.length) {
+      el("div", "sec", P, "", "All sessions");
+      for (const row of sessions) {
+        const start = Date.parse(row.start);
+        const end = row.end ? Date.parse(row.end) : now;
+        const selected = session && session.full_id === row.full_id;
+        const line = btn(`list-row${selected ? " sel" : ""}`, P, "", "", () => pick(path, row));
+        el("span", "tn mu", line, "", L.dayLabel(new Date(start)));
+        el("span", "gr tn mu", line, "", L.clock(start));
+        el("span", "tn", line, "", L.fmtSeconds((end - start) / 1000));
+      }
+    }
+  }
+
+  function panel(P, list) {
+    const s = st.sel;
+    if (!s) { el("p", "hint", P, "", "Click a session, day or project to see details here."); return; }
+    if (s.type === "day") { dayPanel(P, list, s.k); return; }
+    crumbs(P, s.path);
+    el("h3", "", P, "", L.lastPart(s.path));
+    const entry = ensureNode(s.path);
+    if (entry.error) { el("p", "hint", P, "margin-top:8px", entry.error); return; }
+    if (!entry.node) { el("p", "hint", P, "margin-top:8px", "Loading…"); return; }
+    const n = entry.node;
+    if (n.description) el("p", "desc", P, "", n.description);
+    if (n.kind) containerPanel(P, s.path, n);
+    else taskPanel(P, s.path, n, entry.sessions);
+  }
+
+  // Top bar
+  function topBar(list) {
+    const top = el("div", "bar-top", app);
+    const tabs = el("div", "tabs", top);
+    [["week", "Week"], ["month", "Month"], ["strips", "Day strips"]].forEach(([view, label]) =>
+      btn(view === st.view ? "on" : "", tabs, "", label, () => {
+        st.view = view;
+        if (st.day) reveal(st.day);
+        update();
+      }));
+    const N = el("div", "nav", top);
+    const go = (change) => { change(); clearDay(); update(); };
+    const nowButton = (at, change) => btn(`now${at ? " at" : ""}`, N, "", "Now", at ? null : () => go(change));
+    if (st.view === "week") {
+      const end = L.addDays(st.week, 6);
+      btn("", N, "", "‹", () => go(() => { st.week = L.addDays(st.week, -7); }));
+      btn("", N, "", "›", () => go(() => { st.week = L.addDays(st.week, 7); }));
+      nowButton(+st.week === +L.mondayOf(today()), () => { st.week = L.mondayOf(today()); });
+      N.append(`${st.week.getDate()} ${L.MONTHS[st.week.getMonth()]} – ${end.getDate()} ${L.MONTHS[end.getMonth()]}`);
+    } else if (st.view === "month") {
+      const y = st.month.getFullYear();
+      const m = st.month.getMonth();
+      btn("", N, "", "‹", () => go(() => { st.month = new Date(y, m - 1, 1); }));
+      btn("", N, "", "›", () => go(() => { st.month = new Date(y, m + 1, 1); }));
+      nowButton(+st.month === +L.firstOfMonth(today()), () => { st.month = L.firstOfMonth(today()); });
+      N.append(`${MONTHS_LONG[m]} ${y}`);
+    } else {
+      btn("", N, "", "‹", () => go(() => { st.stripEnd = L.addDays(st.stripEnd, -st.stripDays); }));
+      btn("", N, "", "›", () => go(() => {
+        const next = L.addDays(st.stripEnd, st.stripDays);
+        st.stripEnd = next > today() ? today() : next;
+      }));
+      nowButton(+st.stripEnd === +today(), () => { st.stripEnd = today(); });
+      [7, 30, 60, 100].forEach((days) =>
+        btn(`rng${days === st.stripDays ? " on" : ""}`, N, "", `${days}d`, () => { st.stripDays = days; clearDay(); update(); }));
+      const info = el("span", "zi", N);
+      info.id = "zi";
+      info.append("");
+      btn("", info, "", "Reset zoom", () => { st.zoom = { ...FULL_DAY }; render(); });
+    }
+    const inMonth = st.view === "month" ? list.filter((p) => L.fromKey(p.day).getMonth() === st.month.getMonth()) : list;
+    const counted = st.hl ? inMonth.filter((p) => L.matches(p.path, st.hl)) : inMonth;
+    const sum = el("div", "sum tn", top, "", st.hl ? L.lastPart(st.hl) : "Total");
+    el("b", "", sum, "", L.fmtSeconds(L.sumSeconds(counted)));
+  }
+
+  function render() {
+    const side = app.querySelector(".side");
+    const sideTop = side ? side.scrollTop : 0;
+    app.textContent = "";
+    if (st.error) el("div", "banner", app, "", st.error).setAttribute("role", "alert");
+    if (!st.tree || !st.range) {
+      if (!st.error) el("p", "hint", app, "", "Loading…");
+      return;
+    }
+    const list = L.pieces(st.rows, st.range, Date.now());
+    todoSection(app);
+    topBar(list);
+    if (st.query) {
+      const q = el("div", "q", app);
+      el("code", "", q, "", `udo session list / --from "${st.query.from} 00:00" --to "${st.query.to} 00:00" --json`);
+      q.append(` · ${st.query.n} sessions · ${(st.query.bytes / 1024).toFixed(1)} KB`);
+    }
+    legend(app, list);
+    const layout = el("div", "layout", app);
+    const M = el("div", "main", layout);
+    const P = el("div", "side", layout);
+    ({ week: weekView, month: monthView, strips: stripsView })[st.view](M, list);
+    panel(P, list);
+    P.scrollTop = sideTop;
+    app.querySelectorAll("button.blk, .expand button.bar").forEach(fitLabel);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !st.tree) return;
+    L.escStep(st, st.tree, st.view);
+    tip.style.display = "none";
+    render();
+  });
+  window.addEventListener("focus", refresh);
+  setInterval(() => {
+    if (!dragging && Date.now() - lastGesture > 2000) render();
+  }, 60000);
+  refresh();
 })();
 </script>
 </html>

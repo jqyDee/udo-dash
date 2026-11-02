@@ -247,6 +247,14 @@ test("dueState", () => {
   eq(L.dueState(undefined, 0).kind, "none");
 });
 
+test("a done task never warns", () => {
+  const now = Date.parse("2026-11-03T00:10:00+01:00");
+  const due = "2026-10-21T08:00:00+02:00";
+  eq(L.taskWarning({ status: "done", due }, now).kind, "none");
+  eq(L.taskWarning({ status: "started", due }, now).kind, "late");
+  eq(L.taskWarning({ status: "to do" }, now).kind, "none");
+});
+
 test("todoItems sorts by due and leaves out done tasks", () => {
   const now = Date.parse("2026-11-03T00:10:00+01:00");
   const items = L.todoItems(tree, now);
