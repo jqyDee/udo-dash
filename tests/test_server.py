@@ -103,6 +103,11 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(body, TREE)
         self.assertEqual(self.calls(), [["ls", "/", "-t", "--json"]])
 
+    def test_status_args(self):
+        status, _ = self.get_json("/api/status")
+        self.assertEqual(status, 200)
+        self.assertEqual(self.calls(), [["status", "--json"]])
+
     def test_node_args(self):
         status, _ = self.get_json("/api/node?path=" + quote("Uni/lab 3"))
         self.assertEqual(status, 200)

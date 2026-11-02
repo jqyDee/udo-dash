@@ -76,6 +76,7 @@ accepted them along with the folder.
 |---|---|---|
 | `/api/sessions?from=&to=` | `udo session list / --from "<from> 00:00" --to "<to> 00:00" --json` | Current view; `to` is exclusive |
 | `/api/tree` | `udo ls / -t --json` | To do, kinds, nearest project, colors |
+| `/api/status` | `udo status --json` | Status box |
 | `/api/node?path=` | `udo show <path> --json` | Side panel, on click |
 | `/api/task-sessions?path=` | `udo session list <path> --all --json` | "All sessions" in the side panel, on click |
 
@@ -115,7 +116,8 @@ These come from checking real udo output. Getting them wrong produces wrong tota
 
 ## Page layout, top to bottom
 
-1. **To do** section.
+1. **To do** section (larger text, prominent), with the **Status** box beside it in a
+   column as wide as the side panel.
 2. **Bar:** view tabs (Week, Month, Day strips), ‹ › navigation, a **Now** button
    (dimmed when already there), period label, and the total on the right.
 3. **Query line:** small grey text with the udo command run and its size. Useful
@@ -137,6 +139,16 @@ The page opens on Week at the current week.
   reload.
 - Warnings always pair icon and text, never color alone.
 - Clicking a row selects the task and highlights it.
+
+## Status
+
+- While a timer runs: "Running", the task, its nearest container, elapsed time and when
+  it started. Otherwise "Not timing anything".
+- `udo status` gives only the task's name. If exactly one task has that name, the box
+  shows its container and clicking it selects and highlights the task. If not, the name
+  is still shown, without a link.
+- Checked once a minute as well as on navigation and window focus, because a timer can
+  start or stop elsewhere while the page stays open. A change reloads the view.
 
 ## Views
 
@@ -274,7 +286,8 @@ surface, which labels and hover text make up for.
 
 - Hovering a session or day cell shows a tooltip: task, project, time and length.
 - Re-fetch the current view's data on navigation and when the window regains focus.
-- Once a minute, redraw time-based things (warnings, running session) without a query.
+- Once a minute, redraw time-based things (warnings, running session). The only query
+  this runs is the status check.
 
 ## Prototype differences
 

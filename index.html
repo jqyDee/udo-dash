@@ -29,17 +29,31 @@
   .hint { color:var(--muted); font-size:13px; margin:0; }
   .banner { background:var(--banner); border:1px solid #d03b3b; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; }
 
-  .todo { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:8px 10px; margin-bottom:12px; }
-  .todo .sec { margin:0 0 3px 5px; }
-  button.td { display:grid; grid-template-columns:minmax(0,1fr) 110px 170px 92px; gap:10px; align-items:center; width:100%; padding:3px 5px; border-radius:5px; font-size:12px; }
+  .top-row { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:16px; align-items:stretch; margin-bottom:14px; }
+  .todo, .status { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:12px 14px; }
+  .todo .sec, .status .sec { margin:0 0 6px; font-size:12px; font-weight:600; }
+  .todo .sec { margin-left:8px; }
+  button.td { display:grid; grid-template-columns:minmax(0,1fr) 120px 200px 100px; gap:12px; align-items:center; width:100%; padding:7px 8px; border-radius:6px; font-size:15px; }
   button.td:hover { background:var(--wash); }
   button.td.sel { background:var(--wash); box-shadow:inset 2px 0 0 var(--ink); }
-  .td .p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .td .p small { color:var(--muted); font-size:11px; margin-left:6px; }
-  .td .mu { color:var(--ink2); }
+  .td .p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .td .p small { color:var(--muted); font-size:12px; font-weight:400; margin-left:8px; }
+  .td .mu { color:var(--ink2); font-size:14px; }
   .td .warn { font-weight:600; }
+  .td .warn svg { width:15px; height:15px; vertical-align:-3px; margin-right:6px; }
   .warn svg, .chip svg { vertical-align:-2px; margin-right:4px; }
   .td .r { text-align:right; }
+
+  .status-body { display:block; width:100%; border-radius:6px; padding:4px 6px; margin:0 -6px; width:calc(100% + 12px); }
+  button.status-body:hover { background:var(--wash); }
+  button.status-body.sel { background:var(--wash); box-shadow:inset 2px 0 0 var(--ink); }
+  .status-state { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
+  .status-state i { width:9px; height:9px; border-radius:50%; background:#0ca30c; flex:none; }
+  .status-state.idle { color:var(--ink2); font-weight:500; }
+  .status-state.idle i { background:var(--base); }
+  .status-task { font-size:17px; font-weight:600; line-height:1.3; margin-top:4px; overflow-wrap:anywhere; }
+  .status-sub { font-size:12px; color:var(--muted); }
+  .status-time { font-size:24px; font-weight:600; line-height:1.3; margin-top:4px; font-variant-numeric:tabular-nums; }
 
   .bar-top { display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
   .tabs { display:flex; gap:2px; background:var(--wash); border-radius:8px; padding:3px; }
@@ -365,6 +379,24 @@ const L = (() => {
       });
   }
 
+  // What is being timed. udo reports only the task's name, so its path is known
+  // only if exactly one task has that name.
+  function statusView(status, tree, nowMs) {
+    const running = status && status.running;
+    if (!running) return null;
+    const started = Date.parse(running.started);
+    const same = tree.rows.filter((r) => !r.kind && r.name === running.task);
+    const path = same.length === 1 ? same[0].path : null;
+    const sameDay = dayKey(new Date(started)) === dayKey(new Date(nowMs));
+    return {
+      task: running.task,
+      path,
+      container: path ? tree.containerName(path) : null,
+      elapsed: fmtSeconds((nowMs - started) / 1000),
+      since: `since ${sameDay ? clock(started) : fmtDue(running.started, nowMs)}`,
+    };
+  }
+
   // Day strips: the visible part of the day, in minutes.
   const clampV0 = (v0, span) => Math.max(0, Math.min(DAY_MINUTES - span, v0));
   function zoomAt(zoom, fraction, deltaY) {
@@ -391,7 +423,7 @@ const L = (() => {
     weekRange, monthRange, stripRange,
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
-    dueState, taskWarning, fmtDue, todoItems,
+    dueState, taskWarning, fmtDue, todoItems, statusView,
     zoomAt, panBy, tickList, weekAxisStart,
   };
 })();
@@ -421,6 +453,7 @@ const L = (() => {
     rows: [],
     range: null,
     query: null,
+    status: null,
     error: null,
   };
   let seq = 0;
@@ -453,12 +486,18 @@ const L = (() => {
     const range = viewRange();
     const from = L.dayKey(range.from);
     const to = L.dayKey(range.to);
-    const [tree, sessions] = await Promise.allSettled([
+    const [tree, sessions, status] = await Promise.allSettled([
       api("/api/tree"),
       api(`/api/sessions?from=${from}&to=${to}`),
+      api("/api/status"),
     ]);
     if (mine !== seq) return; // A newer view was asked for in the meantime.
     const errors = [];
+    if (status.status === "fulfilled") st.status = status.value.json;
+    else {
+      st.status = null;
+      errors.push(status.reason.message);
+    }
     if (tree.status === "fulfilled") {
       st.tree = L.buildTree(tree.value.json.rows);
       st.colors = L.colors(st.tree);
@@ -626,6 +665,30 @@ const L = (() => {
       when.append(item.when);
       el("span", "mu tn r", row, "", item.left);
     }
+  }
+
+  // Status
+  function statusSection(parent) {
+    const box = el("div", "status", parent);
+    el("div", "sec", box, "", "Status");
+    const view = L.statusView(st.status, st.tree, Date.now());
+    if (!view) {
+      const idle = el("div", "status-state idle", box);
+      el("i", "", idle);
+      idle.append("Not timing anything");
+      return;
+    }
+    const selected = st.sel && st.sel.path === view.path;
+    const body = view.path
+      ? btn(`status-body${selected ? " sel" : ""}`, box, "", "", () => pick(view.path))
+      : el("div", "status-body", box);
+    const state = el("span", "status-state", body);
+    el("i", "", state);
+    state.append("Running");
+    el("div", "status-task", body, "", view.task);
+    if (view.container) el("div", "status-sub", body, "", view.container);
+    el("div", "status-time", body, "", view.elapsed);
+    el("div", "status-sub", body, "", view.since);
   }
 
   // Legend
@@ -1088,7 +1151,9 @@ const L = (() => {
       return;
     }
     const list = L.pieces(st.rows, st.range, Date.now());
-    todoSection(app);
+    const topRow = el("div", "top-row", app);
+    todoSection(topRow);
+    statusSection(topRow);
     topBar(list);
     if (st.query) {
       const q = el("div", "q", app);
@@ -1112,9 +1177,22 @@ const L = (() => {
     render();
   });
   window.addEventListener("focus", refresh);
-  setInterval(() => {
-    if (!dragging && Date.now() - lastGesture > 2000) render();
-  }, 60000);
+  // A timer can start or stop in another window while this one stays open.
+  async function checkStatus() {
+    if (dragging || Date.now() - lastGesture <= 2000) return;
+    const mine = seq;
+    let status;
+    try {
+      status = (await api("/api/status")).json;
+    } catch {
+      return; // The next refresh reports it.
+    }
+    if (mine !== seq) return;
+    const changed = JSON.stringify(status) !== JSON.stringify(st.status);
+    if (changed) refresh();
+    else render();
+  }
+  setInterval(checkStatus, 60000);
   refresh();
 })();
 </script>

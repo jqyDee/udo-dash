@@ -80,6 +80,10 @@ def tree(_query):
     return run_udo(["ls", "/", "-t", "--json"])
 
 
+def status(_query):
+    return run_udo(["status", "--json"])
+
+
 def known_path(query):
     """The path parameter, if it names a node in the tree."""
     path = query.get("path")
@@ -102,6 +106,7 @@ def task_sessions(query):
 ROUTES = {
     "/api/sessions": sessions,
     "/api/tree": tree,
+    "/api/status": status,
     "/api/node": node,
     "/api/task-sessions": task_sessions,
 }

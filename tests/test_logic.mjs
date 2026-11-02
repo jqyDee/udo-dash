@@ -284,6 +284,28 @@ test("todoItems sorts by due and leaves out done tasks", () => {
   );
 });
 
+test("statusView", () => {
+  const now = Date.parse("2026-11-03T12:30:00+01:00");
+  const running = (task, started) => ({ running: { task, started, ended: null, minutes: 0 } });
+  eq(L.statusView({ running: null }, tree, now), null);
+  eq(
+    plain(L.statusView(running("Exercise 1", "2026-11-03T10:15:30+01:00"), tree, now)),
+    { task: "Exercise 1", path: "Uni/A/Exercise 1", container: "A", elapsed: "2h14", since: "since 10:15" },
+  );
+  // Started on an earlier day: the start says which day.
+  eq(L.statusView(running("Solo", "2026-11-02T23:00:00+01:00"), tree, now).since, "since 2 Nov 23:00");
+  // Unknown or ambiguous name: no path to link to, but still shown.
+  const twice = L.buildTree([
+    { path: "A", name: "A", depth: 0, kind: "project" },
+    { path: "B", name: "B", depth: 0, kind: "project" },
+    { path: "A/lab", name: "lab", depth: 1, status: "started" },
+    { path: "B/lab", name: "lab", depth: 1, status: "to do" },
+  ]);
+  const ambiguous = L.statusView(running("lab", "2026-11-03T12:00:00+01:00"), twice, now);
+  eq([ambiguous.task, ambiguous.path, ambiguous.container, ambiguous.elapsed], ["lab", null, null, "30m"]);
+  eq(L.statusView(running("gone", "2026-11-03T12:00:00+01:00"), tree, now).path, null);
+});
+
 test("zoomAt keeps the time under the cursor and clamps", () => {
   let z = { v0: 0, span: 1440 };
   const at = 0.75 * 1440;
