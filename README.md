@@ -17,7 +17,7 @@ respected.
 
 ```sh
 python3 -m unittest discover -s tests
-node --test tests/
+node --test tests/test_logic.mjs
 ```
 
 Node is only needed for the page logic tests.

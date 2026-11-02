@@ -4,6 +4,246 @@
 <title>udo-dash</title>
 <div id="app"></div>
 <script id="logic">
-const L = {};
+// Pure logic, no DOM. tests/test_logic.mjs loads this script on its own.
+const L = (() => {
+  const DAY_MINUTES = 1440;
+  const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const pad = (n) => String(n).padStart(2, "0");
+  const natural = (a, b) => a.localeCompare(b, "en", { numeric: true, sensitivity: "base" });
+
+  // Days
+  const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromKey = (key) => {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const mondayOf = (d) => addDays(d, -((d.getDay() + 6) % 7));
+  const firstOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+  const dayLabel = (d) => `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+
+  // Ranges: `to` is exclusive.
+  const weekRange = (monday) => ({ from: monday, to: addDays(monday, 7) });
+  const monthRange = (first) => {
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    return { from: mondayOf(first), to: addDays(mondayOf(last), 7) };
+  };
+  const stripRange = (endDay, days) => ({ from: addDays(endDay, -(days - 1)), to: addDays(endDay, 1) });
+
+  // Sessions
+  const wallMinutes = (ms) => {
+    const d = new Date(ms);
+    return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000;
+  };
+
+  // One piece per local day, clipped to the range. udo returns a session across
+  // midnight for both days, each time whole, so durations come from the timestamps.
+  function pieces(rows, range, nowMs) {
+    const out = [];
+    for (const row of rows) {
+      if (!row.path) continue;
+      const start = Date.parse(row.start);
+      const end = row.end ? Date.parse(row.end) : nowMs;
+      let day = startOfDay(new Date(Math.max(start, range.from.getTime())));
+      while (day < range.to && day.getTime() < end) {
+        const next = addDays(day, 1);
+        const a = Math.max(start, day.getTime());
+        const b = Math.min(end, next.getTime());
+        if (b > a) {
+          out.push({
+            id: row.full_id,
+            task: row.task,
+            path: row.path,
+            day: dayKey(day),
+            startMin: wallMinutes(a),
+            endMin: b >= next.getTime() ? DAY_MINUTES : wallMinutes(b),
+            seconds: (b - a) / 1000,
+            running: !row.end,
+            row,
+          });
+        }
+        day = next;
+      }
+    }
+    return out.sort((x, y) => (x.day === y.day ? x.startMin - y.startMin : x.day < y.day ? -1 : 1));
+  }
+
+  const fmtMinutes = (total) => {
+    const hours = Math.floor(total / 60);
+    if (!hours) return `${total}m`;
+    return `${hours}h${total % 60 ? pad(total % 60) : ""}`;
+  };
+  const fmtSeconds = (seconds) => fmtMinutes(Math.floor(seconds / 60));
+  const sumSeconds = (list) => list.reduce((n, p) => n + p.seconds, 0);
+  const hhmm = (minutes) => {
+    const m = Math.floor(minutes);
+    return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  };
+  const clock = (ms) => {
+    const d = new Date(ms);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Tree
+  const parentOf = (path) => {
+    const i = path.lastIndexOf("/");
+    return i < 0 ? null : path.slice(0, i);
+  };
+  const lastPart = (path) => path.slice(path.lastIndexOf("/") + 1);
+
+  function buildTree(rows) {
+    const byPath = new Map(rows.map((r) => [r.path, r]));
+    const nearest = (path, kind) => {
+      for (let p = path; p !== null; p = parentOf(p)) {
+        const r = byPath.get(p);
+        if (r && r.kind === kind) return p;
+      }
+      return null;
+    };
+    const projectOf = (path) => nearest(path, "project");
+    return {
+      rows,
+      byPath,
+      parent: parentOf,
+      children: (path) =>
+        rows.filter((r) => parentOf(r.path) === path).sort((a, b) => natural(a.name, b.name)),
+      projectOf,
+      groupOf: (path) => projectOf(path) || nearest(path, "workspace"),
+      containerName: (path) => {
+        const parent = parentOf(path);
+        return parent === null ? null : lastPart(parent);
+      },
+    };
+  }
+
+  // Colors follow the entity, never its position in the current range.
+  function colors(tree) {
+    const tasks = tree.rows.filter((r) => !r.kind);
+    const direct = new Set(tasks.map((r) => tree.groupOf(r.path)));
+    const groups = tree.rows
+      .filter((r) => r.kind === "project" || (r.kind === "workspace" && direct.has(r.path)))
+      .map((r) => r.path)
+      .sort(natural);
+    const projectSlot = new Map(groups.map((p, i) => [p, `--s${(i % 8) + 1}`]));
+
+    const siblings = new Map();
+    for (const r of tasks) {
+      const g = tree.groupOf(r.path);
+      if (!siblings.has(g)) siblings.set(g, []);
+      siblings.get(g).push(r);
+    }
+    const taskSlot = new Map();
+    for (const list of siblings.values()) {
+      list.sort((a, b) => natural(a.name, b.name));
+      list.forEach((r, i) => taskSlot.set(r.path, `--t${(i % 5) + 1}`));
+    }
+    return {
+      project: (group) => projectSlot.get(group) || "--neutral",
+      task: (path) => taskSlot.get(path) || "--t1",
+    };
+  }
+
+  const matches = (path, hl) => !!hl && (path === hl || path.startsWith(`${hl}/`));
+
+  // Esc goes back one level per press.
+  function escStep(s, tree, view) {
+    const project = s.hl && tree.projectOf(s.hl);
+    const onNode = s.sel && s.sel.type === "node";
+    if (s.hl && project && s.hl !== project) {
+      s.hl = project;
+      s.sel = { type: "node", path: project };
+    } else if (s.hl && project && onNode && s.sel.path !== project) {
+      s.sel = { type: "node", path: project };
+    } else if (s.hl) {
+      s.hl = null;
+      if (onNode) s.sel = null;
+    } else if (onNode) {
+      s.sel = null;
+    } else if (s.day || s.sel) {
+      s.day = null;
+      s.sel = null;
+    } else if (view === "strips") {
+      s.zoom = { v0: 0, span: DAY_MINUTES };
+    }
+  }
+
+  // Due dates
+  const DAY_MS = 864e5;
+  function dueState(iso, nowMs) {
+    if (!iso) return { kind: "none" };
+    const ms = Date.parse(iso) - nowMs;
+    if (ms < 0) return { kind: "late" };
+    if (ms >= DAY_MS) return { kind: "ok" };
+    const hours = Math.floor(ms / 36e5);
+    return { kind: "soon", text: hours >= 1 ? `due in ${hours}h` : `due in ${Math.max(1, Math.floor(ms / 6e4))}m` };
+  }
+  const dayDistance = (iso, nowMs) =>
+    Math.round((startOfDay(new Date(iso)) - startOfDay(new Date(nowMs))) / DAY_MS);
+  function relativeDay(iso, nowMs) {
+    const days = dayDistance(iso, nowMs);
+    if (days === 0) return "today";
+    if (days === 1) return "tomorrow";
+    if (days === -1) return "yesterday";
+    return days < 0 ? `${-days} days ago` : `in ${days} days`;
+  }
+  function fmtDue(iso, nowMs) {
+    const d = new Date(iso);
+    const year = d.getFullYear() === new Date(nowMs).getFullYear() ? "" : ` ${d.getFullYear()}`;
+    return `${d.getDate()} ${MONTHS[d.getMonth()]}${year} ${clock(d.getTime())}`;
+  }
+  function todoItems(tree, nowMs) {
+    return tree.rows
+      .filter((r) => !r.kind && r.status !== "done")
+      .map((row) => {
+        const state = dueState(row.due, nowMs);
+        let when = "no due date";
+        if (state.kind === "late") when = `overdue, ${relativeDay(row.due, nowMs)}`;
+        else if (state.kind === "soon") when = state.text;
+        else if (state.kind === "ok") when = relativeDay(row.due, nowMs);
+        let left = "no estimate";
+        if (row.estimate != null) {
+          const rest = row.estimate - (row.minutes || 0);
+          left = rest >= 0 ? `${fmtMinutes(rest)} left` : `${fmtMinutes(-rest)} over`;
+        }
+        return { row, state: state.kind, when, left, due: row.due ? fmtDue(row.due, nowMs) : "" };
+      })
+      .sort((a, b) => {
+        if (!a.row.due || !b.row.due) return a.row.due ? -1 : b.row.due ? 1 : natural(a.row.path, b.row.path);
+        return Date.parse(a.row.due) - Date.parse(b.row.due);
+      });
+  }
+
+  // Day strips: the visible part of the day, in minutes.
+  const clampV0 = (v0, span) => Math.max(0, Math.min(DAY_MINUTES - span, v0));
+  function zoomAt(zoom, fraction, deltaY) {
+    const at = zoom.v0 + fraction * zoom.span;
+    const step = Math.max(-60, Math.min(60, deltaY));
+    const span = Math.max(60, Math.min(DAY_MINUTES, zoom.span * Math.exp(step * 0.01)));
+    return { v0: clampV0(at - fraction * span, span), span };
+  }
+  const panBy = (zoom, minutes) => ({ v0: clampV0(zoom.v0 + minutes, zoom.span), span: zoom.span });
+  function tickList(v0, span) {
+    const step = [15, 30, 60, 120, 180, 360].find((s) => span / s <= 8) || 360;
+    const ticks = [];
+    for (let t = Math.ceil(v0 / step) * step; t <= v0 + span + 0.001; t += step) ticks.push(t);
+    return { ticks, label: (t) => (step < 60 ? hhmm(t) : pad(t / 60)) };
+  }
+
+  const WEEK_AXIS_START = 480;
+  const weekAxisStart = (list) =>
+    list.reduce((min, p) => Math.min(min, Math.floor(p.startMin / 60) * 60), WEEK_AXIS_START);
+
+  return {
+    DAY_MINUTES, WEEKDAYS, MONTHS,
+    dayKey, fromKey, addDays, startOfDay, mondayOf, firstOfMonth, dayLabel,
+    weekRange, monthRange, stripRange,
+    pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
+    buildTree, lastPart, colors, matches, escStep,
+    dueState, fmtDue, todoItems,
+    zoomAt, panBy, tickList, weekAxisStart,
+  };
+})();
 </script>
 </html>
