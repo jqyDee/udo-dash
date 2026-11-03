@@ -397,6 +397,13 @@ const L = (() => {
     };
   }
 
+  // Week view: fill the free height with the 24 hours. Below the minimum the page
+  // scrolls instead, because sessions would become too short to read or click.
+  const WEEK_HOUR_MIN = 16;
+  const WEEK_HOUR_MAX = 38.75;
+  const weekHourHeight = (available) =>
+    Math.max(WEEK_HOUR_MIN, Math.min(WEEK_HOUR_MAX, available / 24));
+
   // Day strips: the visible part of the day, in minutes.
   const clampV0 = (v0, span) => Math.max(0, Math.min(DAY_MINUTES - span, v0));
   function zoomAt(zoom, fraction, deltaY) {
@@ -420,7 +427,7 @@ const L = (() => {
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
     dueState, taskWarning, fmtDue, todoItems, statusView,
-    zoomAt, panBy, tickList,
+    weekHourHeight, zoomAt, panBy, tickList,
   };
 })();
 </script>
@@ -429,7 +436,7 @@ const L = (() => {
   const app = document.getElementById("app");
   const tip = document.getElementById("tip");
   const FULL_DAY = { v0: 0, span: L.DAY_MINUTES };
-  const WEEK_PX_PER_MIN = 620 / 960;
+  const PAGE_BOTTOM_SPACE = 31; // Below the calendar: card padding, border, page padding.
   const MONTH_BAR_SECONDS = 8 * 3600;
   const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const today = () => L.startOfDay(new Date());
@@ -725,8 +732,6 @@ const L = (() => {
   // Views
   function weekView(M, list) {
     const days = [...Array(7)].map((_, i) => L.addDays(st.week, i));
-    const y = (minutes) => minutes * WEEK_PX_PER_MIN;
-    const height = y(L.DAY_MINUTES);
     const W = el("div", "week", M);
     W.style.gridTemplateColumns = `34px ${days.map((d) => (L.dayKey(d) === st.day ? "3fr" : "1fr")).join(" ")}`;
     el("div", "", W);
@@ -740,7 +745,12 @@ const L = (() => {
       el("b", "", head, "", `${L.WEEKDAYS[d.getDay()]} ${d.getDate()}`);
       el("span", "tn", head, "", seconds ? L.fmtSeconds(seconds) : "–");
     }
-    const axis = el("div", "axis", W, `height:${height}px`);
+    const axis = el("div", "axis", W);
+    const calendarTop = axis.getBoundingClientRect().top + window.scrollY;
+    const pxPerMinute = L.weekHourHeight(innerHeight - calendarTop - PAGE_BOTTOM_SPACE) / 60;
+    const y = (minutes) => minutes * pxPerMinute;
+    const height = y(L.DAY_MINUTES);
+    axis.style.height = `${height}px`;
     lines.forEach((m) => el("span", "", axis, `top:${y(m)}px`, L.hhmm(m).slice(0, 2)));
     for (const d of days) {
       const k = L.dayKey(d);
@@ -748,7 +758,7 @@ const L = (() => {
       lines.forEach((m) => el("div", "gl", col, `top:${y(m)}px`));
       for (const p of list.filter((x) => x.day === k)) {
         const co = fill(p.path);
-        const h = (p.endMin - p.startMin) * WEEK_PX_PER_MIN;
+        const h = (p.endMin - p.startMin) * pxPerMinute;
         const block = btn(
           blockClass("blk", p), col,
           `top:${y(p.startMin)}px;height:${h}px;background:${co.c};color:${co.on}`, "",
@@ -1160,6 +1170,11 @@ const L = (() => {
     const P = el("div", "side", layout);
     ({ week: weekView, month: monthView, strips: stripsView })[st.view](M, list);
     panel(P, list);
+    if (st.view === "week") {
+      // A long panel scrolls inside itself, so it can't push the page past one screen.
+      const room = Math.floor(innerHeight - (P.getBoundingClientRect().top + window.scrollY) - 16);
+      P.style.maxHeight = `${Math.max(room, M.getBoundingClientRect().height)}px`;
+    }
     P.scrollTop = sideTop;
     app.querySelectorAll("button.blk, .expand button.bar").forEach(fitLabel);
   }
@@ -1171,6 +1186,7 @@ const L = (() => {
     render();
   });
   window.addEventListener("focus", refresh);
+  window.addEventListener("resize", () => { if (st.view === "week") render(); });
   // A timer can start or stop in another window while this one stays open.
   async function checkStatus() {
     if (dragging || Date.now() - lastGesture <= 2000) return;

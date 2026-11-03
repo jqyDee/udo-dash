@@ -156,9 +156,11 @@ The page opens on Week at the current week.
 
 - Seven columns, Monday first; each header shows the day and its total. The total
   follows the highlight.
-- Vertical axis by real time, always 00:00 to 24:00, at about 38.75 px per hour. It
-  never adapts to the week's sessions, because a changing axis makes the calendar jump
-  while navigating.
+- Vertical axis by real time, always 00:00 to 24:00. It never adapts to the
+  week's sessions, because a changing axis makes the calendar jump while navigating.
+- The hour height scales so the whole dashboard fits one browser height, between 16 and
+  38.75 px per hour. Below 16 px the page scrolls instead, so sessions stay readable. A
+  long side panel scrolls inside itself rather than making the page taller.
 - Sessions are blocks at their real time.
 - Labels: task name; nearest container as a second line if the block is at least
   28 px tall; only the task name from 13 px; none below that.

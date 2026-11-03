@@ -306,6 +306,15 @@ test("statusView", () => {
   eq(L.statusView(running("gone", "2026-11-03T12:00:00+01:00"), tree, now).path, null);
 });
 
+test("weekHourHeight fits the space, within its limits", () => {
+  eq(L.weekHourHeight(24 * 30), 30);
+  eq(L.weekHourHeight(24 * 38.75), 38.75);
+  eq(L.weekHourHeight(5000), 38.75);
+  eq(L.weekHourHeight(24 * 16), 16);
+  eq(L.weekHourHeight(100), 16);
+  eq(L.weekHourHeight(-50), 16);
+});
+
 test("zoomAt keeps the time under the cursor and clamps", () => {
   let z = { v0: 0, span: 1440 };
   const at = 0.75 * 1440;
