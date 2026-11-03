@@ -27,6 +27,9 @@ with open(os.environ["FAKE_UDO_LOG"], "a") as log:
 if os.environ.get("FAKE_UDO_FAIL"):
     sys.stderr.write("error: database is locked\\n")
     sys.exit(1)
+if os.environ.get("FAKE_UDO_RAW"):
+    sys.stdout.buffer.write(bytes.fromhex(os.environ["FAKE_UDO_RAW"]))
+    sys.exit(0)
 if sys.argv[1] == "ls":
     print(json.dumps({tree}))
 else:
@@ -173,6 +176,18 @@ class ServerTest(unittest.TestCase):
         status, body = self.get_json("/api/tree")
         self.assertEqual(status, 502)
         self.assertIn("database is locked", body["error"])
+
+    def test_unexpected_udo_output_is_reported(self):
+        self.addCleanup(os.environ.pop, "FAKE_UDO_RAW", None)
+        for raw, route in (
+            (b"[]", "/api/node?path=x"),
+            (b"not json", "/api/node?path=x"),
+            (b"\xff\xfe", "/api/tree"),
+        ):
+            os.environ["FAKE_UDO_RAW"] = raw.hex()
+            status, body = self.get_json(route)
+            self.assertEqual(status, 502, raw)
+            self.assertIn("error", body)
 
     def test_udo_missing(self):
         os.environ["PATH"] = str(Path(self.tmp.name) / "nowhere")

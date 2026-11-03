@@ -147,11 +147,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         query = {key: values[0] for key, values in parse_qs(url.query).items()}
         try:
-            self.respond(200, route(query), "application/json")
+            body = route(query)
         except BadRequest as error:
             self.respond_error(400, str(error))
-        except (UdoError, json.JSONDecodeError) as error:
+        except UdoError as error:
             self.respond_error(502, str(error))
+        except Exception as error:  # udo's output wasn't what this version expects.
+            self.respond_error(502, f"unexpected answer from udo: {error}")
+        else:
+            self.respond(200, body, "application/json")
 
     def do_POST(self):
         self.respond_error(405, "read-only")

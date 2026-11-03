@@ -3,11 +3,6 @@
 A small local browser dashboard for udo time tracking. Personal tool, separate
 from the udo project. It uses the `udo` CLI as its only data source.
 
-The agreed look and behaviour is in the clickable prototype,
-`docs/prototype/prototype-v5.html`. Open it directly in a browser. Where this
-document and the prototype disagree, this document wins. The prototype has pasted
-data and stand-ins that the real build replaces (see "Prototype differences").
-
 ## Why
 
 1. See when work happened, per day, week and month.
@@ -33,7 +28,9 @@ data and stand-ins that the real build replaces (see "Prototype differences").
 
 ## Anti-goals: a failure even if it works
 
-- Writing to udo data, or running any udo command that can.
+- Writing to udo data, or running any udo command meant to change it. Housekeeping udo
+  does by itself on any command, such as a migration after an upgrade, is udo's own and
+  is accepted.
 - Reading `udo.db` or `.udo.toml` directly. The CLI's JSON is the only interface.
 - Requiring changes in the udo repo for the dashboard to work.
 - A dependency install or build step before it runs.
@@ -104,10 +101,12 @@ These come from checking real udo output. Getting them wrong produces wrong tota
   queries for both days, each time with its full `minutes`. Clip with `start` and
   `end`, and draw it as one piece per day.
 - **Compute durations from `start` and `end`, not `minutes`.** Session `minutes` drop
-  the seconds, so many short sessions undercount. On one measured day the rows added up to
-  470 minutes, the timestamps to 475.56, and `udo stats` reports 475. Sum seconds,
+  the seconds, so many short sessions undercount. On one measured day the rows added up
+  to 470 minutes, the timestamps to 475.56, and `udo stats` reported 475. Sum seconds,
   then round down when displaying a total.
 - **Running sessions have `end: null`.** Treat the end as now, and let the bar grow.
+- **Clock changes:** a session starts at its wall-clock time and its length comes from
+  real seconds, because the wall clock jumps on those nights.
 - **`path` can be null** when a task was removed. `--deleted` is not used, but don't
   crash if it appears: skip the row.
 - **Side panel figures are udo's own.** `udo show` can differ slightly from the
@@ -147,12 +146,14 @@ The page opens on Week at the current week.
 ## Status
 
 - While a timer runs: "Running", the task, its nearest container, elapsed time and when
-  it started. Otherwise "Not timing anything".
+  it started. Otherwise "Not timing anything". If udo can't answer: "Status unknown",
+  never "Not timing anything".
 - `udo status` gives only the task's name. If exactly one task has that name, the box
   shows its container and clicking it selects and highlights the task. If not, the name
   is still shown, without a link.
 - Checked once a minute as well as on navigation and window focus, because a timer can
-  start or stop elsewhere while the page stays open. A change reloads the view.
+  start or stop elsewhere while the page stays open. A change reloads the view. After
+  a failed load, the same check keeps retrying until udo answers.
 
 ## Views
 
@@ -182,8 +183,8 @@ The page opens on Week at the current week.
 - Click a day with sessions: outline it and open a full-width panel under its week
   row with a 24-hour strip and a session list. Also show the day in the side panel.
   Click again to close.
-- A session in the strip fills the side panel only. A session in the list also
-  highlights its task.
+- A session in the strip fills the side panel and follows the session-bar rule under
+  "Highlighting". A session in the list also highlights its task.
 
 ### Day strips
 
@@ -194,8 +195,8 @@ The page opens on Week at the current week.
 - Scale above and below the rows; the top one stays visible while scrolling.
 - Labels: task name on the first line and nearest container on the second. The task
   name shows whole or not at all; the container may end in "…".
-- Click a session: side panel only, no highlight change. Click a day label: the day in
-  the side panel.
+- Click a session: fills the side panel and follows the session-bar rule under
+  "Highlighting". Click a day label: the day in the side panel.
 
 #### Zoom and pan (day strips only)
 
@@ -238,8 +239,8 @@ One step back per press, in this order:
 1. Highlighted task: highlight its project instead and show the project in the panel.
 2. Project highlighted while the panel shows one of its tasks: show the project in the
    panel, keep the highlight.
-3. Highlighted project (or a task with no project): remove the highlight and close the
-   panel.
+3. Highlighted project (or a task with no project): remove the highlight and close a
+   panel showing that project or task. A day panel stays until the next press.
 4. A panel with no highlight: close it.
 5. An open day: close it.
 6. In day strips only: reset the zoom.
@@ -276,7 +277,7 @@ with light and dark values chosen by `prefers-color-scheme`.
 | Due soon icon | `#ec835a` | `#ec835a` |
 
 White text on fills, except dark text on yellow in light mode. Remaining surface and
-ink values are in the prototype's CSS.
+ink values are in the CSS of `index.html`.
 
 The validator passed blue, orange and aqua on all pairs, and the five task colors on
 adjacent pairs, in both modes. Aqua and two task colors are below 3:1 on the light
@@ -292,24 +293,11 @@ surface, which labels and hover text make up for.
 
 ## Interaction details
 
-- Hovering a session or day cell shows a tooltip: task, project, time and length.
+- Hovering a session shows a tooltip: task, nearest container, time and length. A day
+  cell shows its total per project.
 - Re-fetch the current view's data on navigation and when the window regains focus.
 - Once a minute, redraw time-based things (warnings, running session). The only query
   this runs is the status check.
-
-## Prototype differences
-
-The prototype's behaviour stands, except:
-
-- **Data:** real queries instead of pasted data and simulated loading.
-- **Removed:** the "Preview warning" button and the explanatory heading.
-- **Week axis:** the prototype is fixed to 08:00 to 24:00, which would hide earlier
-  sessions. The real one always shows the whole day, at the same px per hour.
-- **Totals:** from timestamps, per "Data rules". So they differ from the prototype by a
-  few minutes.
-- **Cross-midnight sessions and running sessions:** handled here. The prototype has
-  neither.
-- **Task colors:** assigned per "Color", so some differ from the prototype.
 
 ## Testing
 
@@ -317,9 +305,8 @@ The prototype's behaviour stands, except:
   100-day cap, `Host` check, error handling, exact arguments passed to udo.
 - **Page logic:** clipping, totals, Esc steps and colors should be testable without a
   browser. The builder decides how, without adding a dependency.
-- **By hand, not yet checked in the prototype with real input:** Ctrl+scroll and pinch
-  with a real mouse and trackpad, drag, hover tooltips, light mode. macOS Accessibility
-  zoom, if set to Ctrl+scroll, takes the gesture first.
+- **By hand:** pinch with a real trackpad. macOS Accessibility zoom, if set to
+  Ctrl+scroll, takes the gesture first.
 
 ## Findings for udo (#84)
 
@@ -335,6 +322,6 @@ Nothing to change for this dashboard, but worth carrying over:
 
 - Code structure inside the two files.
 - The exact tick steps, zoom speed and tooltip placement, as long as they behave as
-  described; the prototype's values are a good start.
+  described.
 - The default port.
 - How page logic is tested, within the no-dependency rule.

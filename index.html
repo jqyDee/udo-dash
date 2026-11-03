@@ -214,7 +214,8 @@ const L = (() => {
             path: row.path,
             day: dayKey(day),
             startMin: wallMinutes(a),
-            endMin: b >= next.getTime() ? DAY_MINUTES : wallMinutes(b),
+            // Length from real seconds: on a clock-change night the wall clock jumps.
+            endMin: Math.min(DAY_MINUTES, wallMinutes(a) + (b - a) / 60000),
             seconds: (b - a) / 1000,
             running: !row.end,
             row,
@@ -302,6 +303,19 @@ const L = (() => {
   }
 
   const matches = (path, hl) => !!hl && (path === hl || path.startsWith(`${hl}/`));
+
+  const freshSession = (session, rows) =>
+    (rows || []).find((row) => row.full_id === session.full_id) || session;
+  // What identifies the timer; its `minutes` change every minute.
+  const statusKey = (status) => {
+    if (!status) return "unknown";
+    return status.running ? `${status.running.task}|${status.running.started}` : "idle";
+  };
+  const selectionKey = (sel) => {
+    if (!sel) return "";
+    if (sel.type === "day") return `day|${sel.k}`;
+    return `node|${sel.path}|${sel.session ? sel.session.full_id : ""}`;
+  };
 
   // Clicking a session never starts a highlight, but a grayed-out one moves it.
   function highlightAfterSessionClick(hl, path, tree) {
@@ -426,6 +440,7 @@ const L = (() => {
     weekRange, monthRange, stripRange,
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
+    freshSession, statusKey, selectionKey,
     dueState, taskWarning, fmtDue, todoItems, statusView,
     weekHourHeight, zoomAt, panBy, tickList,
   };
@@ -463,6 +478,7 @@ const L = (() => {
   let nodeGen = 0;
   const nodes = new Map();
   let lastGesture = 0;
+  let lastSelection = "";
   let dragging = false;
 
   // Data
@@ -508,6 +524,7 @@ const L = (() => {
     if (sessions.status === "fulfilled") {
       st.rows = sessions.value.json.rows;
       st.query = { from, to, n: st.rows.length, bytes: sessions.value.bytes };
+      if (st.sel && st.sel.session) st.sel.session = L.freshSession(st.sel.session, st.rows);
     } else {
       st.rows = [];
       st.query = null;
@@ -544,6 +561,11 @@ const L = (() => {
         if (st.sel && st.sel.path === path) render();
       });
     return entry;
+  }
+  // Clicking something whose details failed to load tries again.
+  function forgetFailed(path) {
+    const known = nodes.get(path);
+    if (known && known.error && !known.pending) nodes.delete(path);
   }
 
   // Elements
@@ -594,6 +616,7 @@ const L = (() => {
     }
   }
   function pick(path, row) {
+    forgetFailed(path);
     st.sel = node(path, row);
     const r = st.tree.byPath.get(path);
     st.hl = r && r.kind === "workspace" ? null : path;
@@ -601,6 +624,7 @@ const L = (() => {
     update();
   }
   function selectSession(p) {
+    forgetFailed(p.path);
     st.hl = L.highlightAfterSessionClick(st.hl, p.path, st.tree);
     st.sel = node(p.path, p.row);
     render();
@@ -674,6 +698,12 @@ const L = (() => {
   function statusSection(parent) {
     const box = el("div", "status", parent);
     el("div", "sec", box, "", "Status");
+    if (!st.status) { // udo couldn't answer, so a timer may well be running.
+      const unknown = el("div", "status-state idle", box);
+      el("i", "", unknown);
+      unknown.append("Status unknown");
+      return;
+    }
     const view = L.statusView(st.status, st.tree, Date.now());
     if (!view) {
       const idle = el("div", "status-state idle", box);
@@ -946,6 +976,7 @@ const L = (() => {
       const up = () => {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
         R.classList.remove("dragging");
         dragging = false;
         if (moved) {
@@ -957,6 +988,7 @@ const L = (() => {
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
     });
   }
 
@@ -1051,7 +1083,7 @@ const L = (() => {
       chip.innerHTML = WARNING[due.kind];
       chip.append(due.kind === "late" ? "overdue" : due.text);
     }
-    const session = st.sel.session;
+    const session = st.sel.session && L.freshSession(st.sel.session, sessions);
     if (session) {
       const start = Date.parse(session.start);
       const end = session.end ? Date.parse(session.end) : now;
@@ -1121,8 +1153,9 @@ const L = (() => {
     } else if (st.view === "month") {
       const y = st.month.getFullYear();
       const m = st.month.getMonth();
-      btn("", N, "", "‹", () => go(() => { st.month = new Date(y, m - 1, 1); }));
-      btn("", N, "", "›", () => go(() => { st.month = new Date(y, m + 1, 1); }));
+      const moveMonth = (n) => { st.month = new Date(st.month.getFullYear(), st.month.getMonth() + n, 1); };
+      btn("", N, "", "‹", () => go(() => moveMonth(-1)));
+      btn("", N, "", "›", () => go(() => moveMonth(1)));
       nowButton(+st.month === +L.firstOfMonth(today()), () => { st.month = L.firstOfMonth(today()); });
       N.append(`${MONTHS_LONG[m]} ${y}`);
     } else {
@@ -1147,7 +1180,11 @@ const L = (() => {
 
   function render() {
     const side = app.querySelector(".side");
-    const sideTop = side ? side.scrollTop : 0;
+    const selection = L.selectionKey(st.sel);
+    const sideTop = side && selection === lastSelection ? side.scrollTop : 0;
+    lastSelection = selection;
+    const pageTop = window.scrollY; // Measuring mid-build can clamp the page's scroll.
+    tip.style.display = "none"; // Its element is about to go, and with it the mouseleave.
     app.textContent = "";
     if (st.error) el("div", "banner", app, "", st.error).setAttribute("role", "alert");
     if (!st.tree || !st.range) {
@@ -1172,10 +1209,12 @@ const L = (() => {
     panel(P, list);
     if (st.view === "week") {
       // A long panel scrolls inside itself, so it can't push the page past one screen.
-      const room = Math.floor(innerHeight - (P.getBoundingClientRect().top + window.scrollY) - 16);
+      // Measured on the calendar: the panel is sticky, so its own top moves with scrolling.
+      const room = Math.floor(innerHeight - (M.getBoundingClientRect().top + window.scrollY) - 16);
       P.style.maxHeight = `${Math.max(room, M.getBoundingClientRect().height)}px`;
     }
     P.scrollTop = sideTop;
+    if (window.scrollY !== pageTop) window.scrollTo(0, pageTop);
     app.querySelectorAll("button.blk, .expand button.bar").forEach(fitLabel);
   }
 
@@ -1195,11 +1234,12 @@ const L = (() => {
     try {
       status = (await api("/api/status")).json;
     } catch {
-      return; // The next refresh reports it.
+      refresh(); // Reports the failure, and clears it once udo answers again.
+      return;
     }
     if (mine !== seq) return;
-    const changed = JSON.stringify(status) !== JSON.stringify(st.status);
-    if (changed) refresh();
+    // A failed load is retried here too, so the page recovers without a click.
+    if (st.error || L.statusKey(status) !== L.statusKey(st.status)) refresh();
     else render();
   }
   setInterval(checkStatus, 60000);

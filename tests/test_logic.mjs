@@ -105,6 +105,48 @@ test("sessions land at wall-clock time on the clock change day", () => {
   eq([p.day, p.startMin, p.endMin, p.seconds], ["2026-10-25", 600, 660, 3600]);
 });
 
+test("a session in the repeated hour keeps its real length when clocks go back", () => {
+  const rows = [row("2026-10-25T02:50:00+02:00", "2026-10-25T02:10:00+01:00")];
+  const [p] = L.pieces(rows, range(d(2026, 10, 25), d(2026, 10, 26)), 0);
+  eq([p.startMin, p.endMin, p.seconds], [170, 190, 1200]);
+});
+
+test("a session across the skipped hour keeps its real length when clocks go forward", () => {
+  const rows = [row("2026-03-29T01:50:00+01:00", "2026-03-29T03:10:00+02:00")];
+  const [p] = L.pieces(rows, range(d(2026, 3, 29), d(2026, 3, 30)), 0);
+  eq([p.startMin, p.endMin, p.seconds], [110, 130, 1200]);
+});
+
+test("the last piece of a long day stops at the end of the day", () => {
+  const rows = [row("2026-10-25T00:00:00+02:00", "2026-10-26T00:00:00+01:00")];
+  const [p] = L.pieces(rows, range(d(2026, 10, 25), d(2026, 10, 26)), 0);
+  eq([p.startMin, p.endMin, p.seconds], [0, 1440, 90000]);
+});
+
+test("freshSession finds the newer copy of a selected session", () => {
+  const old = { full_id: "a", end: null };
+  const newer = { full_id: "a", end: "2026-11-02T11:00:00+01:00" };
+  eq(L.freshSession(old, [{ full_id: "b" }, newer]), newer);
+  eq(L.freshSession(old, [{ full_id: "b" }]), old);
+  eq(L.freshSession(old, undefined), old);
+});
+
+test("statusKey ignores what changes every minute", () => {
+  const at = (minutes) => ({ running: { task: "lab", started: "2026-11-03T10:00:00+01:00", ended: null, minutes } });
+  eq(L.statusKey(at(1)), L.statusKey(at(2)));
+  assert.notEqual(L.statusKey(at(1)), L.statusKey({ running: null }));
+  assert.notEqual(L.statusKey(at(1)), L.statusKey(null));
+});
+
+test("selectionKey tells selections apart, but not redraws of one", () => {
+  const key = L.selectionKey;
+  eq(key({ type: "node", path: "a" }), key({ type: "node", path: "a" }));
+  assert.notEqual(key({ type: "node", path: "a" }), key({ type: "node", path: "b" }));
+  assert.notEqual(key({ type: "node", path: "a" }), key({ type: "node", path: "a", session: { full_id: "s" } }));
+  assert.notEqual(key({ type: "day", k: "2026-11-02" }), key({ type: "day", k: "2026-11-03" }));
+  assert.notEqual(key(null), key({ type: "node", path: "a" }));
+});
+
 test("fmtSeconds rounds down to minutes", () => {
   eq(L.fmtSeconds(475.56 * 60), "7h55");
   eq(L.fmtSeconds(240), "4m");
