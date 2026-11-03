@@ -57,6 +57,10 @@ data and stand-ins that the real build replaces (see "Prototype differences").
 Python and this structure were the builder's recommendation, and the owner
 accepted them along with the folder.
 
+- **Start at login:** `--install-service` writes a launchd user agent and starts it,
+  `--uninstall-service` removes it. Loopback only, on a fixed port, so the address can be
+  bookmarked. Not reachable from other devices: there is no login, and the data is private.
+
 ### Server rules
 
 - Runs `udo` with an argument list, never through a shell.

@@ -197,5 +197,52 @@ class ServerTest(unittest.TestCase):
         self.assertIn(b"<script id=\"logic\">", body)
 
 
+class ServicePlistTest(unittest.TestCase):
+    def plist(self, **overrides):
+        args = {
+            "python": "/opt/homebrew/bin/python3",
+            "script": "/home/me/udo-dash/udo_dash.py",
+            "udo": "/opt/homebrew/bin/udo",
+            "port": 8765,
+            "udo_root": None,
+            "log": "/home/me/Library/Logs/udo-dash.log",
+        }
+        args.update(overrides)
+        return udo_dash.service_plist(**args)
+
+    def test_starts_the_server_without_a_browser(self):
+        self.assertEqual(
+            self.plist()["ProgramArguments"],
+            [
+                "/opt/homebrew/bin/python3",
+                "/home/me/udo-dash/udo_dash.py",
+                "--port", "8765",
+                "--no-open",
+            ],
+        )
+
+    def test_runs_at_login_and_restarts(self):
+        plist = self.plist()
+        self.assertEqual(plist["Label"], udo_dash.SERVICE_LABEL)
+        self.assertIs(plist["RunAtLoad"], True)
+        self.assertIs(plist["KeepAlive"], True)
+
+    def test_path_can_find_udo(self):
+        # launchd's own PATH doesn't include Homebrew.
+        path = self.plist()["EnvironmentVariables"]["PATH"].split(":")
+        self.assertEqual(path[0], "/opt/homebrew/bin")
+        self.assertIn("/usr/bin", path)
+
+    def test_udo_root_is_kept_only_if_set(self):
+        self.assertNotIn("UDO_ROOT", self.plist()["EnvironmentVariables"])
+        env = self.plist(udo_root="/data/udo")["EnvironmentVariables"]
+        self.assertEqual(env["UDO_ROOT"], "/data/udo")
+
+    def test_logs_go_to_the_log_file(self):
+        plist = self.plist()
+        self.assertEqual(plist["StandardOutPath"], "/home/me/Library/Logs/udo-dash.log")
+        self.assertEqual(plist["StandardErrorPath"], "/home/me/Library/Logs/udo-dash.log")
+
+
 if __name__ == "__main__":
     unittest.main()

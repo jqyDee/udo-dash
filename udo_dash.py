@@ -3,6 +3,9 @@
 
 import argparse
 import json
+import os
+import plistlib
+import shutil
 import subprocess
 import sys
 import threading
@@ -16,6 +19,7 @@ PAGE = Path(__file__).resolve().parent / "index.html"
 DEFAULT_PORT = 8765
 MAX_RANGE_DAYS = 100
 UDO_TIMEOUT_SECONDS = 10
+SERVICE_LABEL = "local.udo-dash"
 
 
 class BadRequest(Exception):
@@ -162,11 +166,76 @@ def make_server(port):
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
 
+def service_plist(python, script, udo, port, udo_root, log):
+    """The launchd job. launchd's own PATH doesn't include Homebrew, so it is set here."""
+    env = {"PATH": f"{os.path.dirname(udo)}:/usr/bin:/bin"}
+    if udo_root:
+        env["UDO_ROOT"] = udo_root
+    return {
+        "Label": SERVICE_LABEL,
+        "ProgramArguments": [python, script, "--port", str(port), "--no-open"],
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ThrottleInterval": 10,
+        "WorkingDirectory": "/",
+        "EnvironmentVariables": env,
+        "StandardOutPath": log,
+        "StandardErrorPath": log,
+    }
+
+
+def service_path():
+    return Path.home() / "Library" / "LaunchAgents" / f"{SERVICE_LABEL}.plist"
+
+
+def launchctl(*args):
+    return subprocess.run(["launchctl", *args], capture_output=True, text=True)
+
+
+def uninstall_service():
+    launchctl("bootout", f"gui/{os.getuid()}/{SERVICE_LABEL}")
+    service_path().unlink(missing_ok=True)
+    print("udo-dash no longer starts at login.")
+
+
+def install_service(port):
+    udo = shutil.which("udo")
+    if not udo:
+        sys.exit("udo was not found on PATH.")
+    # The stable link, not sys.executable: that path changes with Python upgrades.
+    python = shutil.which("python3") or sys.executable
+    plist = service_plist(
+        python=python,
+        script=str(Path(__file__).resolve()),
+        udo=udo,
+        port=port,
+        udo_root=os.environ.get("UDO_ROOT"),
+        log=str(Path.home() / "Library" / "Logs" / "udo-dash.log"),
+    )
+    path = service_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    launchctl("bootout", f"gui/{os.getuid()}/{SERVICE_LABEL}")
+    with path.open("wb") as file:
+        plistlib.dump(plist, file)
+    result = launchctl("bootstrap", f"gui/{os.getuid()}", str(path))
+    if result.returncode != 0:
+        sys.exit(f"launchctl failed: {result.stderr.strip()}")
+    print(f"udo-dash starts at login, on http://localhost:{port}/")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--no-open", action="store_true", help="do not open the browser")
+    parser.add_argument("--install-service", action="store_true", help="start at login (macOS launchd)")
+    parser.add_argument("--uninstall-service", action="store_true", help="stop starting at login")
     args = parser.parse_args()
+    if args.install_service:
+        install_service(args.port)
+        return
+    if args.uninstall_service:
+        uninstall_service()
+        return
     try:
         server = make_server(args.port)
     except OSError as error:
