@@ -122,12 +122,15 @@ These come from checking real udo output. Getting them wrong produces wrong tota
 1. **To do** section (larger text, prominent), with the **Status** box beside it in a
    column as wide as the side panel.
 2. **Bar:** view tabs (Week, Month, Day strips), ‹ › navigation, a **Now** button
-   (dimmed when already there), period label, and the total on the right.
-3. **Query line:** small grey text with the udo command run and its size. Useful
-   while this is a sketchpad.
-4. **Legend.**
-5. **Main view**, with the **side panel** on the right (310 px, stays in view while
-   scrolling).
+   (dimmed when already there), period label, the total on the right, and an **ⓘ**
+   whose tooltip shows the udo command run and its size.
+3. **Legend.**
+4. **Main view**, with the **side panel** on the right (240 px, stays in view while
+   scrolling). At 900 px window width or less, the panel moves above the bar instead,
+   at its full length with no scrolling of its own, so bar, legend and main view stay
+   together. The Status box stays where it is. After a click in the bar, legend or main
+   view, or Esc, the page scrolls by the panel's height change so the main view stays
+   still. A panel still loading keeps its height, so this happens once.
 
 The page opens on Week at the current week.
 
@@ -135,10 +138,17 @@ The page opens on Week at the current week.
 
 - Lists tasks whose status isn't `done`, sorted by due date. Tasks without a due date
   go last with "no due date".
+- A toggle in the heading limits the list to tasks due in 7, 14 or 21 days, or shows
+  all. It starts at 21 days. Overdue and undated tasks always stay. The heading shows
+  how many tasks are hidden ("5 hidden").
 - Each row: task name, nearest container (muted), due date, relative time, and time
   left against the estimate ("1h19 left", "1m over", "no estimate").
-- **Overdue:** red triangle and "overdue, 4 days ago".
-- **Due in under 24 hours:** orange triangle and "due in 21h". This updates without a
+- Columns are as wide as their widest entry. When the longest name doesn't fit, the
+  whole list drops the estimate first, then the due date. The relative time always
+  stays, so a name that still doesn't fit is cut with "…". The container is cut with
+  "…" before any of these.
+- **Overdue:** red triangle and "4 days ago".
+- **Due in under 24 hours:** orange triangle and "in 21h". This updates without a
   reload.
 - Warnings always pair icon and text, never color alone.
 - Clicking a row selects the task and highlights it.
@@ -166,6 +176,8 @@ The page opens on Week at the current week.
 - The hour height scales so the whole dashboard fits one browser height, between 16 and
   38.75 px per hour. Below 16 px the page scrolls instead, so sessions stay readable. A
   long side panel scrolls inside itself rather than making the page taller.
+- With the side panel stacked above the calendar, the one-page fit no longer applies:
+  the hour height is at least 30 px and the page scrolls.
 - Sessions are blocks at their real time.
 - Labels: task name; nearest container as a second line if the block is at least
   28 px tall; only the task name from 13 px; none below that.

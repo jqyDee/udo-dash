@@ -10,6 +10,7 @@
     --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
     --t1:#eda100; --t2:#e87ba4; --t3:#008300; --t4:#6250d6; --t5:#e34948;
     --on-yellow:#0b0b0b; --banner:#fbe9e7;
+    --side:240px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -29,11 +30,17 @@
   .hint { color:var(--muted); font-size:13px; margin:0; }
   .banner { background:var(--banner); border:1px solid #d03b3b; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; }
 
-  .top-row { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:16px; align-items:stretch; margin-bottom:14px; }
+  .top-row { display:grid; grid-template-columns:minmax(0,1fr) var(--side); gap:16px; align-items:stretch; margin-bottom:14px; }
   .todo, .status { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:12px 14px; }
   .todo .sec, .status .sec { margin:0 0 6px; font-size:12px; font-weight:600; }
-  .todo .sec { margin-left:8px; }
-  button.td { display:grid; grid-template-columns:minmax(0,1fr) 120px 200px 100px; gap:12px; align-items:center; width:100%; padding:7px 8px; border-radius:6px; font-size:15px; }
+  .td-head { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; margin:0 0 6px 8px; font-size:11px; color:var(--muted); }
+  .todo .td-head .sec { margin:0; }
+  .td-range { display:flex; gap:2px; background:var(--wash); border-radius:6px; padding:2px; }
+  .td-range button { padding:0 7px; border-radius:4px; color:var(--ink2); }
+  .td-range button.on { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 0 0 1px var(--grid); }
+  .td-hidden { color:var(--ink2); font-weight:600; }
+  .td-list { overflow:hidden; }
+  button.td { display:grid; grid-template-columns:var(--td-cols,minmax(0,1fr) auto auto auto); gap:12px; align-items:center; width:100%; padding:7px 8px; border-radius:6px; font-size:15px; }
   button.td:hover { background:var(--wash); }
   button.td.sel { background:var(--wash); box-shadow:inset 2px 0 0 var(--ink); }
   .td .p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
@@ -43,6 +50,8 @@
   .td .warn svg { width:15px; height:15px; vertical-align:-3px; margin-right:6px; }
   .warn svg, .chip svg { vertical-align:-2px; margin-right:4px; }
   .td .r { text-align:right; }
+  .td > span { white-space:nowrap; }
+  .td-list.no-left .left, .td-list.no-due .due { display:none; }
 
   .status-body { display:block; width:100%; border-radius:6px; padding:4px 6px; margin:0 -6px; width:calc(100% + 12px); }
   button.status-body:hover { background:var(--wash); }
@@ -69,15 +78,15 @@
   .zi button { padding:0 9px; height:24px; border-radius:6px; background:var(--wash); color:var(--ink); }
   .sum { margin-left:auto; font-size:13px; color:var(--ink2); }
   .sum b { color:var(--ink); font-size:17px; font-weight:600; margin-left:6px; }
-  .q { font-size:11px; color:var(--muted); margin:-4px 0 8px; }
-  .q code { font-size:11px; color:var(--ink2); }
+  .info { display:inline-block; margin-left:8px; vertical-align:1px; width:16px; height:16px; border:1px solid var(--muted); border-radius:50%; color:var(--ink2); font:italic 600 11px/14px Georgia,serif; text-align:center; cursor:help; }
+  .info:hover { color:var(--ink); border-color:var(--ink); }
   .legend { display:flex; gap:6px 14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--ink2); min-height:26px; margin-bottom:10px; }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
   .legend button:hover { color:var(--ink); }
   .legend b { font-weight:600; color:var(--ink); }
   .legend .clr { background:var(--wash); padding:2px 9px; border-radius:6px; color:var(--ink); }
 
-  .layout { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:16px; align-items:start; }
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) var(--side); gap:16px; align-items:start; }
   .main, .side { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:14px; }
   .side { position:sticky; top:8px; font-size:13px; min-height:220px; max-height:calc(100vh - 16px); overflow:auto; }
 
@@ -156,6 +165,16 @@
   .dir { font-size:11px; color:var(--muted); word-break:break-all; margin-top:10px; }
   #tip { position:fixed; pointer-events:none; z-index:50; background:var(--surface); color:var(--ink); border:1px solid var(--base); border-radius:6px; padding:6px 9px; font-size:12px; line-height:1.4; display:none; box-shadow:0 2px 8px rgba(0,0,0,.18); max-width:260px; }
   #tip small { color:var(--ink2); font-size:11px; display:block; }
+
+  /* Narrow window: the panel moves above the view controls, which stay with the calendar. */
+  @media (max-width: 900px) {
+    #app { display:flex; flex-direction:column; }
+    .layout { display:contents; }
+    .side { order:1; position:static; min-height:0; max-height:none; overflow:visible; margin-bottom:14px; }
+    .bar-top { order:2; }
+    .legend { order:3; }
+    .main { order:4; }
+  }
 </style>
 <div id="app"></div>
 <div id="tip"></div>
@@ -377,9 +396,8 @@ const L = (() => {
       .map((row) => {
         const state = dueState(row.due, nowMs);
         let when = "no due date";
-        if (state.kind === "late") when = `overdue, ${relativeDay(row.due, nowMs)}`;
-        else if (state.kind === "soon") when = state.text;
-        else if (state.kind === "ok") when = relativeDay(row.due, nowMs);
+        if (state.kind === "soon") when = state.text.replace(/^due /, "");
+        else if (row.due) when = relativeDay(row.due, nowMs);
         let left = "no estimate";
         if (row.estimate != null) {
           const rest = row.estimate - (row.minutes || 0);
@@ -391,6 +409,24 @@ const L = (() => {
         if (!a.row.due || !b.row.due) return a.row.due ? -1 : b.row.due ? 1 : natural(a.row.path, b.row.path);
         return Date.parse(a.row.due) - Date.parse(b.row.due);
       });
+  }
+
+  // `days` null means no limit. Overdue and undated tasks always stay.
+  const todoWithin = (items, days, nowMs) =>
+    days === null ? items : items.filter((i) => !i.row.due || dayDistance(i.row.due, nowMs) <= days);
+
+  // Which columns fit beside the longest name: the estimate goes first, then the
+  // date. The relative day always stays, so very long names get cut after that.
+  const TODO_COLUMN_GAP = 12;
+  function todoColumns(room, nameWidth, widths) {
+    const shown = new Set(["due", "left"]);
+    const needed = () =>
+      [...shown].reduce((sum, key) => sum + widths[key] + TODO_COLUMN_GAP, nameWidth + widths.when + TODO_COLUMN_GAP);
+    for (const key of ["left", "due"]) {
+      if (needed() <= room) break;
+      shown.delete(key);
+    }
+    return shown;
   }
 
   // What is being timed. udo reports only the task's name, so its path is known
@@ -413,10 +449,12 @@ const L = (() => {
 
   // Week view: fill the free height with the 24 hours. Below the minimum the page
   // scrolls instead, because sessions would become too short to read or click.
+  // With the panel stacked above it, the page scrolls anyway, so the week stays tall.
   const WEEK_HOUR_MIN = 16;
+  const WEEK_HOUR_STACKED_MIN = 30;
   const WEEK_HOUR_MAX = 38.75;
-  const weekHourHeight = (available) =>
-    Math.max(WEEK_HOUR_MIN, Math.min(WEEK_HOUR_MAX, available / 24));
+  const weekHourHeight = (available, stacked) =>
+    Math.max(stacked ? WEEK_HOUR_STACKED_MIN : WEEK_HOUR_MIN, Math.min(WEEK_HOUR_MAX, available / 24));
 
   // Day strips: the visible part of the day, in minutes.
   const clampV0 = (v0, span) => Math.max(0, Math.min(DAY_MINUTES - span, v0));
@@ -441,7 +479,7 @@ const L = (() => {
     pieces, fmtMinutes, fmtSeconds, sumSeconds, hhmm, clock,
     buildTree, lastPart, colors, matches, highlightAfterSessionClick, escStep,
     freshSession, statusKey, selectionKey,
-    dueState, taskWarning, fmtDue, todoItems, statusView,
+    dueState, taskWarning, fmtDue, todoItems, todoWithin, todoColumns, statusView,
     weekHourHeight, zoomAt, panBy, tickList,
   };
 })();
@@ -453,6 +491,7 @@ const L = (() => {
   const FULL_DAY = { v0: 0, span: L.DAY_MINUTES };
   const PAGE_BOTTOM_SPACE = 31; // Below the calendar: card padding, border, page padding.
   const MONTH_BAR_SECONDS = 8 * 3600;
+  const TODO_ROW_PADDING = 16; // Left and right padding of a To do row.
   const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const today = () => L.startOfDay(new Date());
 
@@ -462,6 +501,7 @@ const L = (() => {
     month: L.firstOfMonth(today()),
     stripEnd: today(),
     stripDays: 30,
+    todoDays: 21,
     zoom: { ...FULL_DAY },
     hl: null,
     day: null,
@@ -480,6 +520,7 @@ const L = (() => {
   let lastGesture = 0;
   let lastSelection = "";
   let dragging = false;
+  let holdCalendar = false; // The last action was at the calendar: keep it still.
 
   // Data
   async function api(url) {
@@ -675,23 +716,52 @@ const L = (() => {
   // To do
   function todoSection(parent) {
     if (!st.tree) return;
-    const items = L.todoItems(st.tree, Date.now());
+    const now = Date.now();
+    const open = L.todoItems(st.tree, now);
+    const items = L.todoWithin(open, st.todoDays, now);
     const box = el("div", "todo", parent);
-    el("div", "sec", box, "", "To do");
-    if (!items.length) el("p", "hint", box, "margin-left:5px", "Nothing open.");
+    const head = el("div", "td-head", box);
+    el("div", "sec", head, "", "To do");
+    head.append("due in");
+    const range = el("div", "td-range", head);
+    [[7, "7d"], [14, "14d"], [21, "21d"], [null, "All"]].forEach(([days, label]) =>
+      btn(days === st.todoDays ? "on" : "", range, "", label, () => { st.todoDays = days; render(); }));
+    const hidden = open.length - items.length;
+    if (hidden) el("span", "td-hidden tn", head, "", `${hidden} hidden`);
+    if (!items.length) {
+      el("p", "hint", box, "margin-left:8px", st.todoDays === null ? "Nothing open." : `Nothing due within ${st.todoDays} days.`);
+    }
+    const list = el("div", "td-list", box);
     for (const item of items) {
       const path = item.row.path;
-      const row = btn(`td${st.sel && st.sel.path === path ? " sel" : ""}`, box, "", "", () => pick(path));
-      const name = el("span", "p", row, "", item.row.name);
+      const row = btn(`td${st.sel && st.sel.path === path ? " sel" : ""}`, list, "", "", () => pick(path));
+      const name = el("span", "p", row);
+      el("span", "nm", name, "", item.row.name);
       const container = st.tree.containerName(path);
       if (container) el("small", "", name, "", container);
-      el("span", "mu tn", row, "", item.due);
+      el("span", "mu tn due", row, "", item.due);
       const warned = item.state === "late" || item.state === "soon";
-      const when = el("span", warned ? "warn" : "mu", row);
+      const when = el("span", `when ${warned ? "warn" : "mu"}`, row);
       if (warned) when.innerHTML = WARNING[item.state];
       when.append(item.when);
-      el("span", "mu tn r", row, "", item.left);
+      el("span", "mu tn r left", row, "", item.left);
     }
+  }
+  // Columns are as wide as their widest entry. Estimate and date drop out when the names need the room.
+  function fitTodo() {
+    const list = app.querySelector(".td-list");
+    if (!list || !list.children.length) return;
+    list.className = "td-list";
+    list.style.setProperty("--td-cols", "repeat(4,max-content)");
+    const widest = (selector) =>
+      Math.ceil(Math.max(...[...list.querySelectorAll(selector)].map((e) => e.getBoundingClientRect().width)));
+    const widths = { due: widest(".due"), when: widest(".when"), left: widest(".left") };
+    const shown = L.todoColumns(list.clientWidth - TODO_ROW_PADDING, widest(".nm"), widths);
+    const tracks = ["due", "when", "left"].filter((key) => {
+      list.classList.toggle(`no-${key}`, key !== "when" && !shown.has(key));
+      return key === "when" || shown.has(key);
+    });
+    list.style.setProperty("--td-cols", ["minmax(0,1fr)", ...tracks.map((key) => `${widths[key]}px`)].join(" "));
   }
 
   // Status
@@ -760,6 +830,7 @@ const L = (() => {
   }
 
   // Views
+  const panelStacked = () => getComputedStyle(app.querySelector(".side")).position !== "sticky";
   function weekView(M, list) {
     const days = [...Array(7)].map((_, i) => L.addDays(st.week, i));
     const W = el("div", "week", M);
@@ -777,7 +848,7 @@ const L = (() => {
     }
     const axis = el("div", "axis", W);
     const calendarTop = axis.getBoundingClientRect().top + window.scrollY;
-    const pxPerMinute = L.weekHourHeight(innerHeight - calendarTop - PAGE_BOTTOM_SPACE) / 60;
+    const pxPerMinute = L.weekHourHeight(innerHeight - calendarTop - PAGE_BOTTOM_SPACE, panelStacked()) / 60;
     const y = (minutes) => minutes * pxPerMinute;
     const height = y(L.DAY_MINUTES);
     axis.style.height = `${height}px`;
@@ -1124,7 +1195,7 @@ const L = (() => {
     el("h3", "", P, "", L.lastPart(s.path));
     const entry = ensureNode(s.path);
     if (entry.error) { el("p", "hint", P, "margin-top:8px", entry.error); return; }
-    if (!entry.node) { el("p", "hint", P, "margin-top:8px", "Loading…"); return; }
+    if (!entry.node) { el("p", "hint loading", P, "margin-top:8px", "Loading…"); return; }
     const n = entry.node;
     if (n.description) el("p", "desc", P, "", n.description);
     if (n.kind) containerPanel(P, s.path, n);
@@ -1176,6 +1247,15 @@ const L = (() => {
     const counted = st.hl ? inMonth.filter((p) => L.matches(p.path, st.hl)) : inMonth;
     const sum = el("div", "sum tn", top, "", st.hl ? L.lastPart(st.hl) : "Total");
     el("b", "", sum, "", L.fmtSeconds(L.sumSeconds(counted)));
+    if (st.query) {
+      const info = el("span", "info", sum, "", "i");
+      info.setAttribute("role", "img");
+      info.setAttribute("aria-label", "Query details");
+      tipOn(info, "Query", [
+        `udo session list / --from "${st.query.from} 00:00" --to "${st.query.to} 00:00" --json`,
+        `${st.query.n} sessions · ${(st.query.bytes / 1024).toFixed(1)} KB`,
+      ]);
+    }
   }
 
   function render() {
@@ -1184,6 +1264,9 @@ const L = (() => {
     const sideTop = side && selection === lastSelection ? side.scrollTop : 0;
     lastSelection = selection;
     const pageTop = window.scrollY; // Measuring mid-build can clamp the page's scroll.
+    const oldMain = app.querySelector(".main");
+    const mainTop = holdCalendar && oldMain ? oldMain.getBoundingClientRect().top : null;
+    const sideHeight = side ? side.offsetHeight : 0;
     tip.style.display = "none"; // Its element is about to go, and with it the mouseleave.
     app.textContent = "";
     if (st.error) el("div", "banner", app, "", st.error).setAttribute("role", "alert");
@@ -1196,18 +1279,15 @@ const L = (() => {
     todoSection(topRow);
     statusSection(topRow);
     topBar(list);
-    if (st.query) {
-      const q = el("div", "q", app);
-      el("code", "", q, "", `udo session list / --from "${st.query.from} 00:00" --to "${st.query.to} 00:00" --json`);
-      q.append(` · ${st.query.n} sessions · ${(st.query.bytes / 1024).toFixed(1)} KB`);
-    }
     legend(app, list);
     const layout = el("div", "layout", app);
     const M = el("div", "main", layout);
     const P = el("div", "side", layout);
+    panel(P, list); // First: above the calendar, its height decides how much room the week has.
+    // Stacked, a panel still loading keeps its height, so the page doesn't jump twice.
+    if (panelStacked() && P.querySelector(".loading")) P.style.minHeight = `${sideHeight}px`;
     ({ week: weekView, month: monthView, strips: stripsView })[st.view](M, list);
-    panel(P, list);
-    if (st.view === "week") {
+    if (st.view === "week" && !panelStacked()) {
       // A long panel scrolls inside itself, so it can't push the page past one screen.
       // Measured on the calendar: the panel is sticky, so its own top moves with scrolling.
       const room = Math.floor(innerHeight - (M.getBoundingClientRect().top + window.scrollY) - 16);
@@ -1215,17 +1295,28 @@ const L = (() => {
     }
     P.scrollTop = sideTop;
     if (window.scrollY !== pageTop) window.scrollTo(0, pageTop);
+    // Stacked, the panel's height changes above the calendar. Scroll by the same amount.
+    if (mainTop !== null && panelStacked()) window.scrollBy(0, M.getBoundingClientRect().top - mainTop);
     app.querySelectorAll("button.blk, .expand button.bar").forEach(fitLabel);
+    fitTodo();
   }
 
+  // Capture: the click's own handler renders straight away.
+  app.addEventListener("click", (e) => {
+    holdCalendar = !!e.target.closest(".bar-top, .legend, .main");
+  }, { capture: true });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || !st.tree) return;
+    holdCalendar = true;
     L.escStep(st, st.tree, st.view);
     tip.style.display = "none";
     render();
   });
   window.addEventListener("focus", refresh);
-  window.addEventListener("resize", () => { if (st.view === "week") render(); });
+  window.addEventListener("resize", () => {
+    if (st.view === "week") render();
+    else fitTodo();
+  });
   // A timer can start or stop in another window while this one stays open.
   async function checkStatus() {
     if (dragging || Date.now() - lastGesture <= 2000) return;
