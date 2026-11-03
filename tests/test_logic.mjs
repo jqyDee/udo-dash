@@ -322,8 +322,49 @@ test("todoItems sorts by due and leaves out done tasks", () => {
   );
   eq(
     items.map((i) => i.when),
-    ["overdue, 4 days ago", "tomorrow", "in 6 days", "in 17 days", "no due date"],
+    ["4 days ago", "tomorrow", "in 6 days", "in 17 days", "no due date"],
   );
+});
+
+test("todoItems shortens the relative time", () => {
+  const now = Date.parse("2026-11-03T12:00:00+01:00");
+  const task = (name, due) => ({ path: name, name, depth: 0, status: "to do", due, minutes: 0 });
+  const items = L.todoItems(L.buildTree([
+    task("Late", "2026-10-30T12:00:00+01:00"),
+    task("Soon", "2026-11-03T12:40:00+01:00"),
+    task("Later", "2026-11-09T12:00:00+01:00"),
+  ]), now);
+  eq(items.map((i) => i.when), ["4 days ago", "in 40m", "in 6 days"]);
+  eq(items.map((i) => i.state), ["late", "soon", "ok"]);
+});
+
+test("todoWithin limits by days ahead and keeps overdue and undated tasks", () => {
+  const now = Date.parse("2026-11-03T23:30:00+01:00");
+  const task = (name, due) => ({ path: name, name, depth: 0, status: "to do", due, minutes: 0 });
+  const items = L.todoItems(L.buildTree([
+    task("Late", "2026-10-01T12:00:00+02:00"),
+    task("Week", "2026-11-10T23:59:00+01:00"),
+    task("Week+1", "2026-11-11T00:00:00+01:00"),
+    task("Last day", "2026-11-24T23:59:00+01:00"),
+    task("Too far", "2026-11-25T00:00:00+01:00"),
+    task("Undated"),
+  ]), now);
+  const names = (days) => L.todoWithin(items, days, now).map((i) => i.row.name);
+  eq(names(7), ["Late", "Week", "Undated"]);
+  eq(names(14), ["Late", "Week", "Week+1", "Undated"]);
+  eq(names(21), ["Late", "Week", "Week+1", "Last day", "Undated"]);
+  eq(names(null), ["Late", "Week", "Week+1", "Last day", "Too far", "Undated"]);
+});
+
+test("todoColumns drops the estimate, then the date, and keeps the relative day", () => {
+  const widths = { due: 100, when: 150, left: 80 };
+  const columns = (room) => [...L.todoColumns(room, 200, widths)].sort();
+  const all = 200 + 100 + 150 + 80 + 3 * 12;
+  eq(columns(all), ["due", "left"]);
+  eq(columns(all - 1), ["due"]);
+  eq(columns(all - 80 - 12), ["due"]);
+  eq(columns(all - 80 - 12 - 1), []);
+  eq(columns(50), []);
 });
 
 test("statusView", () => {
@@ -355,6 +396,9 @@ test("weekHourHeight fits the space, within its limits", () => {
   eq(L.weekHourHeight(24 * 16), 16);
   eq(L.weekHourHeight(100), 16);
   eq(L.weekHourHeight(-50), 16);
+  eq(L.weekHourHeight(100, true), 30);
+  eq(L.weekHourHeight(24 * 35, true), 35);
+  eq(L.weekHourHeight(5000, true), 38.75);
 });
 
 test("zoomAt keeps the time under the cursor and clamps", () => {
